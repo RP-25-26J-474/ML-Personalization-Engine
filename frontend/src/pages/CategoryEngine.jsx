@@ -11,11 +11,11 @@ export default function CategoryEngine() {
           <div className="grid h-full min-h-0 grid-cols-12 gap-3">
             <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-60 flex-col">
                   <InputSection />
                 </div>
 
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-60 flex-col">
                   <OutputSection />
                 </div>
               </div>
