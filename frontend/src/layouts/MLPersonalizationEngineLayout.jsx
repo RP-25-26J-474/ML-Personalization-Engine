@@ -8,10 +8,26 @@ const navSections = [
   {
     label: "Platform",
     items: [
-      { to: "/dashboard", label: "Dashboard" },
-      { to: "/temporary-user-detector", label: "Temporary User Detector" },
-      { to: "/category-engine", label: "Category Engine" },
-      { to: "/user-engine", label: "User Engine" },
+      {
+        to: "/dashboard",
+        label: "Dashboard",
+        subtitle: "Overview of the ML Personalization Engine",
+      },
+      {
+        to: "/temporary-user-detector",
+        label: "Temporary User Detector",
+        subtitle: "Manage temporary user detection settings",
+      },
+      {
+        to: "/category-engine",
+        label: "Category Personalization Engine",
+        subtitle: "Configure category-based recommendations",
+      },
+      {
+        to: "/user-engine",
+        label: "User Personalization Engine",
+        subtitle: "Manage user-based recommendations",
+      },
     ],
   },
   {
@@ -61,6 +77,15 @@ function MLPersonalizationEngineLayout() {
   }, [location.pathname]);
 
   const pageName = breadcrumbs[breadcrumbs.length - 1]?.label || "Home";
+  const subtitle = (() => {
+    const path = location.pathname || "/";
+    const parts = path.split("/").filter(Boolean);
+    const lastPart = parts[parts.length - 1] || "";
+    const navItem = navSections
+      .flatMap((section) => section.items)
+      .find((item) => item.to === `/${lastPart}`);
+    return navItem?.subtitle || "";
+  })();
 
   return (
     <div className="min-h-screen bg-base-300 text-base-content flex">
@@ -115,8 +140,11 @@ function MLPersonalizationEngineLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="text-2xl font-semibold mb-2">{pageName}</div>
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="flex flex-row items-center mb-6 justify-between">
+              <div className="text-2xl font-semibold">{pageName}</div>
+              <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>
+            </div>
             <Outlet />
           </div>
         </main>
@@ -139,14 +167,13 @@ function NavItem({ to, label }) {
       to={to}
       className={({ isActive }) =>
         [
-          "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-base-content/70 hover:bg-base-300 hover:text-base-content transition text-sm",
+          "flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-base-300 hover:text-base-content transition text-sm",
           isActive
-            ? "bg-primary/15 text-base-content border border-primary/30"
-            : "",
+            ? "bg-primary/15 text-base-content border border-primary/70 border-l-6 pl-2"
+            : "text-base-content/50",
         ].join(" ")
       }
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-base-content/40" />
       <span>{label}</span>
     </NavLink>
   );
