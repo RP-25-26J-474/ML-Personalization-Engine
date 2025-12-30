@@ -1,0 +1,44 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.core.logging import setup_logging
+
+from app.api.routes_dashboard import router as dashboard_router
+from app.api.routes_temp_detector import router as temp_router
+from app.api.routes_category_engine import router as category_router
+from app.api.routes_user_engine import router as user_router
+from app.api.routes_data import router as data_router
+
+
+def create_app() -> FastAPI:
+    setup_logging()
+
+    app = FastAPI(
+        title="ML Personalization Engine (MLPE)",
+        version="0.1.0",
+        debug=settings.DEBUG,
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ALLOW_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
+    app.include_router(temp_router, prefix="/temp-detector", tags=["temp-detector"])
+    app.include_router(category_router, prefix="/category", tags=["category"])
+    app.include_router(user_router, prefix="/user", tags=["user"])
+    app.include_router(data_router, prefix="/data", tags=["data"])
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok"}
+
+    return app
+
+
+app = create_app()
