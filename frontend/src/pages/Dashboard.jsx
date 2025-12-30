@@ -1,32 +1,63 @@
-import React from "react";
+import { useEffect, useState } from "react";
+import { getJson } from "../api/MLPEClient";
 
 function Dashboard() {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    getJson("/dashboard/status")
+      .then((data) => {
+        if (mounted) {
+          setStatus(data);
+          setError("");
+        }
+      })
+      .catch((err) => {
+        if (mounted) {
+          setError(err.message || "Failed to load status.");
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const usersWithProfiles = status?.data?.users_with_profiles ?? "--";
+  const profileVersions = status?.data?.profile_versions_total ?? "--";
+  const globalVersion = status?.models?.global_iforest_version ?? "--";
+
   return (
     <div>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-primary/10 bg-base-200 p-4">
           <div className="text-xs uppercase tracking-wide text-base-content/60">
-            Active Experiments
+            Users With Profiles
           </div>
-          <div className="mt-2 text-2xl font-semibold">8</div>
+          <div className="mt-2 text-2xl font-semibold">{usersWithProfiles}</div>
           <div className="text-xs text-base-content/60">
-            2 running, 6 queued
+            {error ? `Error: ${error}` : "Profiles stored in memory"}
           </div>
         </div>
         <div className="rounded-xl border border-primary/10 bg-base-200 p-4">
           <div className="text-xs uppercase tracking-wide text-base-content/60">
-            Model Health
+            Profile Versions
           </div>
-          <div className="mt-2 text-2xl font-semibold">98.4%</div>
-          <div className="text-xs text-base-content/60">Stable over 7 days</div>
+          <div className="mt-2 text-2xl font-semibold">{profileVersions}</div>
+          <div className="text-xs text-base-content/60">
+            Total versions across all users
+          </div>
         </div>
         <div className="rounded-xl border border-primary/10 bg-base-200 p-4">
           <div className="text-xs uppercase tracking-wide text-base-content/60">
-            Data Freshness
+            Global IForest Version
           </div>
-          <div className="mt-2 text-2xl font-semibold">14 min</div>
+          <div className="mt-2 text-2xl font-semibold">{globalVersion}</div>
           <div className="text-xs text-base-content/60">
-            Last ingest: 12:41 PM
+            Latest global model snapshot
           </div>
         </div>
       </div>
