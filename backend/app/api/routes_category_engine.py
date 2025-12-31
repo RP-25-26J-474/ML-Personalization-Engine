@@ -33,7 +33,11 @@ class TrainCategoryRequest(BaseModel):
 @router.post("/train")
 def train_category(req: TrainCategoryRequest):
     container.category_engine.train_from_synth(n=req.n_synth)
-    return {"status": "trained", "n_samples": req.n_synth}
+    return {
+        "status": "trained",
+        "n_samples": req.n_synth,
+        "artifact_key": "category_engine/category_best",
+    }
 
 class VectorSpaceResponse(BaseModel):
     points_2d: list[list[float]]
@@ -42,10 +46,7 @@ class VectorSpaceResponse(BaseModel):
 
 @router.get("/vector-space", response_model=VectorSpaceResponse)
 def vector_space():
-    artifacts = container.category_engine.artifacts
-    if artifacts is None:
-        container.category_engine.train_from_synth(n=400)
-        artifacts = container.category_engine.artifacts
+    artifacts = container.category_engine.get_artifacts(n=400)
 
     X = artifacts.X
     _, Z = fit_umap_2d(X)
@@ -66,10 +67,7 @@ class VectorSpace3DResponse(BaseModel):
 
 @router.get("/vector-space-3d", response_model=VectorSpace3DResponse)
 def vector_space_3d():
-    artifacts = container.category_engine.artifacts
-    if artifacts is None:
-        container.category_engine.train_from_synth(n=400)
-        artifacts = container.category_engine.artifacts
+    artifacts = container.category_engine.get_artifacts(n=400)
 
     X = artifacts.X
     _, Z = fit_umap_3d(X)

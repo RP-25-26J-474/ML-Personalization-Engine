@@ -15,6 +15,9 @@ from app.core.engine.category_engine.model_knn import (
     train_knn,
 )
 from app.core.engine.category_engine.synth_data import generate_synth_survey
+from app.core.storage.artifacts.artifact_store import ArtifactStore
+
+CATEGORY_BEST_KEY = "category_engine/category_best"
 
 
 @dataclass
@@ -70,18 +73,41 @@ def weighted_aggregate(profiles: list[dict], weights: np.ndarray) -> dict:
 
 
 class CategoryEngineService:
-    def __init__(self, artifacts: KNNArtifacts | None = None):
+    def __init__(
+        self,
+        artifacts: KNNArtifacts | None = None,
+        artifact_store: ArtifactStore | None = None,
+    ):
+        self.artifact_store = artifact_store or ArtifactStore()
         self.artifacts = artifacts
+        if self.artifacts is None:
+            self.artifacts = self._load_best()
+
+    def _load_best(self) -> KNNArtifacts | None:
+        return self.artifact_store.load(CATEGORY_BEST_KEY)
+
+    def _save_best(self) -> None:
+        if self.artifacts is not None:
+            self.artifact_store.save(CATEGORY_BEST_KEY, self.artifacts)
+
+    def _ensure_artifacts(self, n: int = 400) -> None:
+        if self.artifacts is None:
+            self.artifacts = self._load_best()
+        if self.artifacts is None:
+            self.train_from_synth(n=n)
+
+    def get_artifacts(self, n: int = 400) -> KNNArtifacts:
+        self._ensure_artifacts(n=n)
+        return self.artifacts
 
     def train_from_synth(self, n: int = 400) -> None:
         Xdicts, profiles = generate_synth_survey(n=n)
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
         self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
+        self._save_best()
 
     def generate(self, onboarding: OnboardingResult) -> CategoryResult:
-        if self.artifacts is None:
-            # auto-train synth for demo
-            self.train_from_synth(n=400)
+        self._ensure_artifacts(n=400)
 
         qdict = flatten_impairment_probs(onboarding)
         q = build_query_vector(qdict)
