@@ -31,6 +31,7 @@ class OrchestratorResult:
     traces: TraceBundle
     quarantined: bool = False
     anomaly_score: float | None = None
+    quality: dict | None = None
 
 
 class Orchestrator:
@@ -79,7 +80,11 @@ class Orchestrator:
         self.traces_repo.save_many(onboarding.user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
-        return OrchestratorResult(profile=profile, diff=d, traces=traces)
+        quality = {
+            "nearest_neighbor_distance": cat.nearest_neighbor_distance,
+            "nearest_neighbor_similarity": cat.nearest_neighbor_similarity,
+        }
+        return OrchestratorResult(profile=profile, diff=d, traces=traces, quality=quality)
 
     # --------- User update (existing user) ----------
     def handle_interactions(self, batch: InteractionBatch) -> OrchestratorResult:

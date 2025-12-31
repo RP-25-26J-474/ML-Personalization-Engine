@@ -14,6 +14,7 @@ class CategoryResponse(BaseModel):
     profile: dict
     diff: dict
     traces: list[dict]
+    quality: dict
 
 
 @router.post("/generate-profile", response_model=CategoryResponse)
@@ -23,6 +24,7 @@ def generate_profile(payload: OnboardingResult):
         profile=out.profile.model_dump(),
         diff=out.diff.model_dump() if out.diff else {},
         traces=[t.model_dump() for t in out.traces.traces],
+        quality=out.quality or {},
     )
 
 

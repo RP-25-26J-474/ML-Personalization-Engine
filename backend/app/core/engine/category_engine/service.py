@@ -24,6 +24,8 @@ CATEGORY_BEST_KEY = "category_engine/category_best"
 class CategoryResult:
     profile_dict: Dict[str, Any]
     confidence: float
+    nearest_neighbor_distance: float
+    nearest_neighbor_similarity: float
     trace: DecisionTrace
 
 
@@ -122,6 +124,10 @@ class CategoryEngineService:
         weights = 1.0 / (dists + eps)
         weights = weights / np.sum(weights)
 
+        nearest_distance = float(np.min(dists))
+        nearest_idx = int(idxs[int(np.argmin(dists))])
+        nearest_similarity = float(max(0.0, min(1.0, 1.0 - nearest_distance)))
+
         neighbor_profiles = [self.artifacts.profiles[i] for i in idxs]
         agg = weighted_aggregate(neighbor_profiles, weights)
         agg = clamp_profile_dict(agg)
@@ -137,11 +143,23 @@ class CategoryEngineService:
             actions=[
                 TraceAction(type="build_query_vector", details={"q": qdict}),
                 TraceAction(type="knn_retrieve", details={"k": len(idxs), "indices": idxs.tolist(), "distances": dists.tolist()}),
+                TraceAction(type="nearest_neighbor", details={"index": nearest_idx, "distance": nearest_distance}),
                 TraceAction(type="aggregate_weighted", details={"weights": weights.tolist()}),
                 TraceAction(type="clamp", details={}),
             ],
-            metrics={"avg_neighbor_distance": avg_dist, "confidence_overall": confidence},
+            metrics={
+                "avg_neighbor_distance": avg_dist,
+                "nearest_neighbor_distance": nearest_distance,
+                "nearest_neighbor_similarity": nearest_similarity,
+                "confidence_overall": confidence,
+            },
             warnings=[],
         )
 
-        return CategoryResult(profile_dict=agg, confidence=confidence, trace=trace)
+        return CategoryResult(
+            profile_dict=agg,
+            confidence=confidence,
+            nearest_neighbor_distance=nearest_distance,
+            nearest_neighbor_similarity=nearest_similarity,
+            trace=trace,
+        )

@@ -149,7 +149,7 @@ function MLPersonalizationEngineLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col max-h-screen overflow-auto">
+      <div className="flex-1 flex flex-col max-h-screen">
         <header className="sticky border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
           <img
             src={logos.aura}

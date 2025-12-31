@@ -38,6 +38,11 @@ const defaultPayload = {
   },
 };
 
+const formatMetric = (value) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(4)
+    : "n/a";
+
 export default function CategoryEngine() {
   const [inputText, setInputText] = useState(formatJson(defaultPayload));
   const [outputText, setOutputText] = useState("");
@@ -57,8 +62,12 @@ export default function CategoryEngine() {
     try {
       const response = await postJson("/category/generate-profile", parsed.value);
       setOutputText(formatJson(response));
+      const nnDistance = response?.quality?.nearest_neighbor_distance;
+      const nnSimilarity = response?.quality?.nearest_neighbor_similarity;
       setConsoleText(
-        `Profile generated. Traces: ${response?.traces?.length ?? 0}.`
+        `Profile generated. Traces: ${response?.traces?.length ?? 0}. ` +
+          `NN distance: ${formatMetric(nnDistance)}. ` +
+          `NN similarity: ${formatMetric(nnSimilarity)}.`
       );
     } catch (error) {
       setOutputText("");

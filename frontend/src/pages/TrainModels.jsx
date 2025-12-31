@@ -156,7 +156,7 @@ function TrainModels() {
                     </div>
                   </div>
                 </div>
-                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-60 flex flex-col">
+                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-50 flex flex-col">
                   <ConsoleSection value={consoleText} />
                 </div>
               </div>
