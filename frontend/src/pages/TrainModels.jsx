@@ -181,20 +181,22 @@ function TrainModels() {
             : tempOutcomes === "keep_quarantine"
             ? ["keep", "quarantine"]
             : ["keep"];
-        const response = tempOutcomes === "synth"
-          ? await postJson("/temp-detector/train-synth", {
-              n_samples: tempSynthSamples,
-              seed: tempSynthSeed,
-            })
-          : await postJson("/temp-detector/train-from-batches", {
-              user_id: tempUserId || null,
-              outcomes,
-              min_samples: tempMinSamples,
-            });
+        const response =
+          tempOutcomes === "synth"
+            ? await postJson("/temp-detector/train-synth", {
+                n_samples: tempSynthSamples,
+                seed: tempSynthSeed,
+              })
+            : await postJson("/temp-detector/train-from-batches", {
+                user_id: tempUserId || null,
+                outcomes,
+                min_samples: tempMinSamples,
+              });
         const status = await getJson("/temp-detector/status");
         const forest = await getJson("/temp-detector/forest?max_trees=5");
         setTempMetrics({
-          status: response?.status === "trained" ? "Trained" : "Not enough data",
+          status:
+            response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
           total: status?.history?.total ?? 0,
           kept: status?.history?.kept ?? 0,
@@ -252,7 +254,9 @@ function TrainModels() {
                   <div className="flex flex-col gap-4 px-5 py-5 flex-1">
                     <div className="grid grid-cols-1 gap-3">
                       <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3">
-                        <div className="text-xs text-base-content/60">Model Type</div>
+                        <div className="text-xs text-base-content/60">
+                          Model Type
+                        </div>
                         <select
                           className="select select-bordered w-full mt-2"
                           value={modelType}
@@ -260,24 +264,31 @@ function TrainModels() {
                         >
                           <option value="category">Category Engine</option>
                           <option value="user">User Engine</option>
-                          <option value="temp-detector">Temporary User Detector</option>
+                          <option value="temp-detector">
+                            Temporary User Detector
+                          </option>
                         </select>
                       </div>
 
                       {modelType === "category" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3">
-                          <div className="text-xs text-base-content/60">Synthetic Samples</div>
+                          <div className="text-xs text-base-content/60">
+                            Synthetic Samples
+                          </div>
                           <input
                             type="number"
                             min={50}
                             max={2000}
                             step={50}
                             value={nSynth}
-                            onChange={(event) => setNSynth(Number(event.target.value))}
+                            onChange={(event) =>
+                              setNSynth(Number(event.target.value))
+                            }
                             className="input input-bordered w-full mt-2"
                           />
                           <div className="mt-2 text-[11px] text-base-content/50">
-                            Uses synthetic data for now. File upload coming next.
+                            Uses synthetic data for now. File upload coming
+                            next.
                           </div>
                         </div>
                       ) : null}
@@ -285,38 +296,52 @@ function TrainModels() {
                       {modelType === "temp-detector" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3 flex flex-col gap-3">
                           <div>
-                            <div className="text-xs text-base-content/60">User ID (optional)</div>
+                            <div className="text-xs text-base-content/60">
+                              User ID (optional)
+                            </div>
                             <input
                               type="text"
                               value={tempUserId}
-                              onChange={(event) => setTempUserId(event.target.value)}
+                              onChange={(event) =>
+                                setTempUserId(event.target.value)
+                              }
                               className="input input-bordered w-full mt-2"
                               placeholder="u_001"
                             />
                           </div>
                           <div>
-                            <div className="text-xs text-base-content/60">Training Mode</div>
+                            <div className="text-xs text-base-content/60">
+                              Training Mode
+                            </div>
                             <select
                               className="select select-bordered w-full mt-2"
                               value={tempOutcomes}
-                              onChange={(event) => setTempOutcomes(event.target.value)}
+                              onChange={(event) =>
+                                setTempOutcomes(event.target.value)
+                              }
                             >
                               <option value="keep">From kept batches</option>
-                              <option value="keep_quarantine">Keep + Quarantine</option>
+                              <option value="keep_quarantine">
+                                Keep + Quarantine
+                              </option>
                               <option value="all">All outcomes</option>
                               <option value="synth">Synthetic data</option>
                             </select>
                           </div>
                           {tempOutcomes !== "synth" ? (
                             <div>
-                              <div className="text-xs text-base-content/60">Min Samples</div>
+                              <div className="text-xs text-base-content/60">
+                                Min Samples
+                              </div>
                               <input
                                 type="number"
                                 min={5}
                                 max={1000}
                                 step={5}
                                 value={tempMinSamples}
-                                onChange={(event) => setTempMinSamples(Number(event.target.value))}
+                                onChange={(event) =>
+                                  setTempMinSamples(Number(event.target.value))
+                                }
                                 className="input input-bordered w-full mt-2"
                               />
                             </div>
@@ -324,7 +349,9 @@ function TrainModels() {
                           {tempOutcomes === "synth" ? (
                             <>
                               <div>
-                                <div className="text-xs text-base-content/60">Synthetic Samples</div>
+                                <div className="text-xs text-base-content/60">
+                                  Synthetic Samples
+                                </div>
                                 <input
                                   type="number"
                                   min={50}
@@ -332,13 +359,17 @@ function TrainModels() {
                                   step={50}
                                   value={tempSynthSamples}
                                   onChange={(event) =>
-                                    setTempSynthSamples(Number(event.target.value))
+                                    setTempSynthSamples(
+                                      Number(event.target.value)
+                                    )
                                   }
                                   className="input input-bordered w-full mt-2"
                                 />
                               </div>
                               <div>
-                                <div className="text-xs text-base-content/60">Seed</div>
+                                <div className="text-xs text-base-content/60">
+                                  Seed
+                                </div>
                                 <input
                                   type="number"
                                   min={0}
@@ -360,7 +391,9 @@ function TrainModels() {
                     <div className="flex items-center justify-between gap-3 mt-auto">
                       <div className="flex items-center gap-2 text-xs text-base-content/60">
                         <span className="w-2 h-2 rounded-full bg-success/70"></span>
-                        {canTrain ? "Ready for training" : "Training not available"}
+                        {canTrain
+                          ? "Ready for training"
+                          : "Training not available"}
                       </div>
                       <button
                         className="btn btn-primary shadow"
@@ -398,11 +431,15 @@ function TrainModels() {
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Total</div>
-                        <div className="text-sm font-semibold">{tempMetrics.total}</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.total}
+                        </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Kept</div>
-                        <div className="text-sm font-semibold">{tempMetrics.kept}</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.kept}
+                        </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Quarantined</div>
@@ -424,7 +461,9 @@ function TrainModels() {
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Status</div>
-                        <div className={`text-sm font-semibold ${tempStatusTone}`}>
+                        <div
+                          className={`text-sm font-semibold ${tempStatusTone}`}
+                        >
                           {tempMetrics.status}
                         </div>
                       </div>
@@ -451,11 +490,15 @@ function TrainModels() {
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Samples</div>
-                        <div className="text-sm font-semibold">{metrics.samples}</div>
+                        <div className="text-sm font-semibold">
+                          {metrics.samples}
+                        </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Features</div>
-                        <div className="text-sm font-semibold">{metrics.features}</div>
+                        <div className="text-sm font-semibold">
+                          {metrics.features}
+                        </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Status</div>
@@ -474,9 +517,9 @@ function TrainModels() {
                   ) : modelType === "temp-detector" ? (
                     <div className="max-h-[40vh] overflow-auto h-full">
                       <IsolationForestTrees
-                      trees={tempForest?.trees || []}
-                      maxDepth={12}
-                    />
+                        trees={tempForest?.trees || []}
+                        maxDepth={12}
+                      />
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center text-base-content/50">
