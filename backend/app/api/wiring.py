@@ -11,6 +11,8 @@ from app.core.storage.repos.profiles_repo import ProfilesRepo
 from app.core.storage.repos.traces_repo import TracesRepo
 from app.core.storage.repos.quarantine_repo import QuarantineRepo
 from app.core.storage.repos.models_repo import ModelsRepo
+from app.core.storage.repos.temp_batches_repo import TempBatchesRepo
+from app.core.storage.repos.temp_baseline_repo import TempBaselineRepo
 
 
 @dataclass
@@ -20,6 +22,8 @@ class Container:
     traces_repo: TracesRepo
     quarantine_repo: QuarantineRepo
     models_repo: ModelsRepo
+    temp_batches_repo: TempBatchesRepo
+    temp_baseline_repo: TempBaselineRepo
 
     # services
     temp_detector: TempUserDetectorService
@@ -35,8 +39,13 @@ def build_container() -> Container:
     traces_repo = TracesRepo()
     quarantine_repo = QuarantineRepo()
     models_repo = ModelsRepo()
+    temp_batches_repo = TempBatchesRepo()
+    temp_baseline_repo = TempBaselineRepo()
 
-    temp_detector = TempUserDetectorService(model=None)
+    temp_detector = TempUserDetectorService(
+        model=None,
+        baseline_repo=temp_baseline_repo,
+    )
     category_engine = CategoryEngineService()
     user_engine = UserEngineService()
 
@@ -55,6 +64,8 @@ def build_container() -> Container:
         traces_repo=traces_repo,
         quarantine_repo=quarantine_repo,
         models_repo=models_repo,
+        temp_batches_repo=temp_batches_repo,
+        temp_baseline_repo=temp_baseline_repo,
         temp_detector=temp_detector,
         category_engine=category_engine,
         user_engine=user_engine,

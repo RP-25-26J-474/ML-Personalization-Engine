@@ -9,8 +9,11 @@ from app.core.schemas.interactions import InteractionBatch
 from app.core.schemas.trace import DecisionTrace, TraceAction
 from app.core.utils.ids import new_id
 
-from app.core.engine.temp_user_detector.features import extract_features
+from app.core.engine.temp_user_detector.features import extract_features, FEATURE_ORDER
 from app.core.engine.temp_user_detector.model_iforest import new_iforest, score_anomaly
+from app.core.engine.temp_user_detector.synth_data import generate_synth_interactions
+from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.storage.repos.temp_baseline_repo import TempBaselineRepo
 
 
 @dataclass
@@ -33,14 +36,29 @@ class TempUserDetectorService:
       - if not trained, fall back to heuristic scoring
     """
 
-    def __init__(self, model: IsolationForest | None = None):
-        self.model = model
-        self.quarantine_threshold = 0.6  # demo threshold (tune later)
-        self.reject_threshold = 0.85  # hard reject for high anomaly
+    def __init__(
+        self,
+        model: IsolationForest | None = None,
+        artifact_store: ArtifactStore | None = None,
+        baseline_repo: TempBaselineRepo | None = None,
+    ):
+        self.artifact_store = artifact_store or ArtifactStore()
+        self.model = model or self._load_best()
+        self.baseline_repo = baseline_repo or TempBaselineRepo()
+        self.quarantine_threshold = 0.50  # demo threshold (tune later)
+        self.reject_threshold = 0.75  # hard reject for high anomaly
+        self.feature_order = list(FEATURE_ORDER)
 
     def train_global(self, feature_matrix: np.ndarray) -> None:
         self.model = new_iforest()
         self.model.fit(feature_matrix)
+        self._save_best()
+
+    def train_from_synth(self, n: int = 400, seed: int = 42) -> int:
+        rows = generate_synth_interactions(n=n, seed=seed)
+        X = np.array([[row[k] for k in self.feature_order] for row in rows], dtype=float)
+        self.train_global(X)
+        return int(X.shape[0])
 
     def score_batch(self, batch: InteractionBatch) -> TempFilterResult:
         return self._score_batch_internal(batch)
@@ -137,6 +155,19 @@ class TempUserDetectorService:
             trace=trace,
         )
 
+    def update_baseline(self, user_id: str, features: list[float]) -> None:
+        self.baseline_repo.update(user_id, features)
+
+    def get_baseline(self, user_id: str) -> list[float] | None:
+        return self.baseline_repo.get(user_id)
+
+    def _load_best(self) -> IsolationForest | None:
+        return self.artifact_store.load("temp_detector/iforest_best")
+
+    def _save_best(self) -> None:
+        if self.model is not None:
+            self.artifact_store.save("temp_detector/iforest_best", self.model)
+
     def _heuristic_components(self, batch: InteractionBatch) -> dict[str, float]:
         def norm(value: float, low: float, high: float) -> float:
             return self._norm(value, low, high)
@@ -162,16 +193,22 @@ class TempUserDetectorService:
 
     def _similarity_score(self, batch: InteractionBatch) -> float:
         e = batch.events_agg
-        # Typical primary user interaction profile (demo baseline)
-        base = {
-            "click_count": 22.0,
-            "misclick_rate": 0.08,
-            "avg_click_interval_ms": 420.0,
-            "avg_dwell_ms": 1800.0,
-            "rage_clicks": 0.0,
-            "zoom_events": 1.0,
-            "scroll_speed_px_s": 260.0,
-        }
+        baseline = self.baseline_repo.get(batch.user_id)
+        if baseline:
+            base = {
+                key: float(val) for key, val in zip(self.feature_order, baseline)
+            }
+        else:
+            # Typical primary user interaction profile (demo baseline)
+            base = {
+                "click_count": 22.0,
+                "misclick_rate": 0.08,
+                "avg_click_interval_ms": 420.0,
+                "avg_dwell_ms": 1800.0,
+                "rage_clicks": 0.0,
+                "zoom_events": 1.0,
+                "scroll_speed_px_s": 260.0,
+            }
 
         vec = [
             self._norm(e.click_count, 5.0, 40.0),
