@@ -4,42 +4,7 @@ import { logos } from "../assets";
 import ThemeButton from "../components/common/ThemeButton";
 import BreadCrumbs from "../components/common/BreadCrumbs";
 
-const navSections = [
-  {
-    label: "Platform",
-    items: [
-      {
-        to: "/dashboard",
-        label: "Dashboard",
-        subtitle: "Overview of the ML Personalization Engine",
-      },
-      {
-        to: "/temporary-user-detector",
-        label: "Temporary User Detector",
-        subtitle: "Manage temporary user detection settings",
-      },
-      {
-        to: "/category-engine",
-        label: "Category Personalization Engine",
-        subtitle: "Configure category-based recommendations",
-      },
-      {
-        to: "/user-engine",
-        label: "User Personalization Engine",
-        subtitle: "Manage user-based recommendations",
-      },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/train", label: "Train Models", subtitle: "Train personalization models" },
-      { to: "/pipelines", label: "Pipelines", subtitle: "Manage data pipelines" },
-      { to: "/monitoring", label: "Monitoring", subtitle: "Monitor system performance" },
-      { to: "/settings", label: "Settings", subtitle: "Configure system settings" },
-    ],
-  },
-];
+import { navSections } from "../constants";
 
 const pathLabelMap = navSections.reduce(
   (acc, section) => {

@@ -7,37 +7,7 @@ import CategoryNearestNeighbor from "../components/charts/category-engine/Catego
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
-const defaultPayload = {
-  user_id: "u_001",
-  session_id: "onb_001",
-  captured_at: "2025-10-06T11:00:00Z",
-  impairment_probs: {
-    vision: {
-      vision_loss: 0.2,
-      color_blindness: 0.1,
-      photophobia: 0.05,
-    },
-    motor: {
-      delayed_reaction: 0.3,
-      inaccurate_click: 0.2,
-      tremor: 0.1,
-    },
-    literacy: 0.4,
-  },
-  onboarding_metrics: {
-    avg_reaction_ms: 720,
-    hit_rate: 0.88,
-    color_confusion_rate: 0.12,
-    reading_score: 0.6,
-  },
-  device_context: {
-    os: "Windows",
-    browser: "Chrome",
-    screen_w: 1440,
-    screen_h: 900,
-    dpr: 1,
-  },
-};
+import { CategoryEngineDefaultPayload } from "../constants";
 
 const formatMetric = (value) =>
   typeof value === "number" && Number.isFinite(value)
@@ -45,7 +15,7 @@ const formatMetric = (value) =>
     : "n/a";
 
 export default function CategoryEngine() {
-  const [inputText, setInputText] = useState(formatJson(defaultPayload));
+  const [inputText, setInputText] = useState(formatJson(CategoryEngineDefaultPayload));
   const [outputText, setOutputText] = useState("");
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);

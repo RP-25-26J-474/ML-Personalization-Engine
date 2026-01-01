@@ -6,35 +6,10 @@ import ChartSection from "../components/sections/ChartSection";
 import { postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
-const defaultPayload = {
-  user_id: "u_001",
-  batch_id: "b_001",
-  captured_at: "2025-10-06T11:25:00Z",
-  page_context: {
-    domain: "example.com",
-    route: "/checkout",
-    app_type: "web",
-  },
-  events_agg: {
-    click_count: 24,
-    misclick_rate: 0.12,
-    avg_click_interval_ms: 430,
-    avg_dwell_ms: 2100,
-    rage_clicks: 1,
-    zoom_events: 2,
-    scroll_speed_px_s: 260,
-  },
-  raw_samples_optional: [
-    { t: 120, type: "click", x: 120, y: 440, target_w: 42, target_h: 18 },
-  ],
-  _profiler: {
-    sampling_hz: 30,
-    input_lag_ms_est: 34,
-  },
-};
+import { UserEngineDefaultPayload } from "../constants";
 
 export default function UserEngine() {
-  const [inputText, setInputText] = useState(formatJson(defaultPayload));
+  const [inputText, setInputText] = useState(formatJson(UserEngineDefaultPayload));
   const [outputText, setOutputText] = useState("");
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
