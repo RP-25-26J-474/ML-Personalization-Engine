@@ -126,7 +126,7 @@ function MLPersonalizationEngineLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-7xl mx-auto px-10 py-8">
+          <div className="max-w-9xl mx-auto px-10 py-8">
             <div className="flex flex-row items-center mb-6 justify-between">
               <div className="text-2xl font-semibold">{pageName}</div>
               <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>

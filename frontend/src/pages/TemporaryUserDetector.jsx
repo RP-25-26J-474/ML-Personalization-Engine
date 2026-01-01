@@ -8,7 +8,7 @@ import Accordian from "../components/accordian/Accordian";
 import AnomalyDistribution from "../components/charts/temp-detector/AnomalyDistribution";
 import SimilarityScatter from "../components/charts/temp-detector/SimilarityScatter";
 import HeuristicRadar from "../components/charts/temp-detector/HeuristicRadar";
-import { postJson } from "../api/MLPEClient";
+import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
 import { TemporaryUserDetectorDefaultPayload } from "../constants";
@@ -20,9 +20,17 @@ function TemporaryUserDetector() {
   const [keptItems, setKeptItems] = useState([]);
   const [quarantinedItems, setQuarantinedItems] = useState([]);
   const [rejectedItems, setRejectedItems] = useState([]);
+  const [historyItems, setHistoryItems] = useState([]);
   const [scoreSummary, setScoreSummary] = useState(null);
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
+
+  const fetchHistory = async (userId) => {
+    const response = await getJson(
+      userId ? `/temp-detector/history?user_id=${userId}` : "/temp-detector/history"
+    );
+    setHistoryItems(response?.items || []);
+  };
 
   const handleSubmit = async () => {
     const parsed = tryParseJson(inputText);
@@ -47,6 +55,13 @@ function TemporaryUserDetector() {
       setQuarantinedItems(response?.quarantined || []);
       setRejectedItems(response?.rejected || []);
       setScoreSummary(response?.summary || null);
+      const userId =
+        payload?.batches?.[0]?.user_id ||
+        payload?.user_id ||
+        response?.kept?.[0]?.user_id ||
+        response?.quarantined?.[0]?.user_id ||
+        response?.rejected?.[0]?.user_id;
+      await fetchHistory(userId);
       const summary = response?.summary;
       setConsoleText(
         summary
@@ -57,6 +72,7 @@ function TemporaryUserDetector() {
       setKeptItems([]);
       setQuarantinedItems([]);
       setRejectedItems([]);
+      setHistoryItems([]);
       setScoreSummary(null);
       setConsoleText(
         `Request failed: ${error.message}${
@@ -74,8 +90,10 @@ function TemporaryUserDetector() {
   const toAccordianItems = (items) =>
     items.map((item) => ({
       key: item.batch_id,
-      title: `${item.user_id} | ${item.batch_id}`,
-      subtitle: `Anomaly Score: ${item.anomaly_score} • Similarity: ${item.similarity_score}`,
+      title: `${item.batch_id} | ${item.outcome || "unknown"}`,
+      subtitle: `Anomaly: ${formatScore(item.anomaly_score)} | Similarity: ${formatScore(
+        item.similarity_score
+      )}`,
       content: (
         <pre className="whitespace-pre-wrap text-xs font-mono">
           {formatJson(item.batch || {})}
@@ -83,7 +101,10 @@ function TemporaryUserDetector() {
       ),
     }));
 
-  const allItems = [...keptItems, ...quarantinedItems, ...rejectedItems];
+  const allItems =
+    historyItems.length > 0
+      ? historyItems
+      : [...keptItems, ...quarantinedItems, ...rejectedItems];
 
   const tabs = [
     {
@@ -120,12 +141,12 @@ function TemporaryUserDetector() {
       key: "anomaly-distribution",
       label: "Anomaly Distribution",
       content: (
-        <div className="w-full overflow-hidden">
+        <div className="w-full h-72 overflow-hidden">
           <ChartSection
             subtitle="Histogram with quarantine/reject thresholds"
             contentClassName="h-full"
           >
-            <AnomalyDistribution items={allItems} />
+            <AnomalyDistribution items={allItems} thresholds={scoreSummary} />
           </ChartSection>
         </div>
       ),
@@ -135,7 +156,7 @@ function TemporaryUserDetector() {
       label: "Similarity vs Anomaly",
       description: "Scatter by outcome",
       content: (
-        <div className="w-full overflow-hidden">
+        <div className="w-full h-72 overflow-hidden">
           <ChartSection
             subtitle="Similarity Score vs Anomaly Score"
             contentClassName="h-full"
@@ -150,7 +171,7 @@ function TemporaryUserDetector() {
       label: "Heuristic Radar",
       description: "Average component scores per outcome",
       content: (
-        <div className="w-full overflow-hidden">
+        <div className="w-full h-72 overflow-hidden">
           <ChartSection
             subtitle="Heuristic Component Scores"
             contentClassName="h-full"
