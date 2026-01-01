@@ -33,9 +33,10 @@ const navSections = [
   {
     label: "Operations",
     items: [
-      { to: "/pipelines", label: "Pipelines" },
-      { to: "/monitoring", label: "Monitoring" },
-      { to: "/settings", label: "Settings" },
+      { to: "/train", label: "Train Models", subtitle: "Train personalization models" },
+      { to: "/pipelines", label: "Pipelines", subtitle: "Manage data pipelines" },
+      { to: "/monitoring", label: "Monitoring", subtitle: "Monitor system performance" },
+      { to: "/settings", label: "Settings", subtitle: "Configure system settings" },
     ],
   },
 ];
@@ -50,6 +51,14 @@ const pathLabelMap = navSections.reduce(
   { "/": "Home" }
 );
 
+const routeMeta = navSections.flatMap((section) =>
+  section.items.map((item) => ({
+    ...item,
+    sectionLabel: section.label,
+    sectionRoot: section.items[0]?.to || "/",
+  }))
+);
+
 function humanizeSegment(segment) {
   return segment
     .replace(/-/g, " ")
@@ -61,6 +70,18 @@ function MLPersonalizationEngineLayout() {
 
   const breadcrumbs = useMemo(() => {
     const path = location.pathname || "/";
+    if (path === "/") {
+      return [{ to: "/", label: "Home" }];
+    }
+
+    const match = routeMeta.find((item) => item.to === path);
+    if (match) {
+      return [
+        { to: match.sectionRoot, label: match.sectionLabel },
+        { to: match.to, label: match.label },
+      ];
+    }
+
     const parts = path.split("/").filter(Boolean);
     const items = [{ to: "/", label: "Home" }];
     let current = "";
@@ -128,8 +149,8 @@ function MLPersonalizationEngineLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col">
-        <header className="border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
+      <div className="flex-1 flex flex-col max-h-screen">
+        <header className="sticky border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
           <img
             src={logos.aura}
             alt="AURA Logo"
@@ -140,7 +161,7 @@ function MLPersonalizationEngineLayout() {
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="max-w-7xl mx-auto px-10 py-8">
             <div className="flex flex-row items-center mb-6 justify-between">
               <div className="text-2xl font-semibold">{pageName}</div>
               <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>

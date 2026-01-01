@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import InputSection from "../components/sections/InputSection";
 import OutputSection from "../components/sections/OutputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
-import { postJson } from "../api/MLPEClient";
+import CategoryNearestNeighbor from "../components/charts/category-engine/CategoryNearestNeighbor";
+import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
 const defaultPayload = {
@@ -38,11 +39,42 @@ const defaultPayload = {
   },
 };
 
+const formatMetric = (value) =>
+  typeof value === "number" && Number.isFinite(value)
+    ? value.toFixed(4)
+    : "n/a";
+
 export default function CategoryEngine() {
   const [inputText, setInputText] = useState(formatJson(defaultPayload));
   const [outputText, setOutputText] = useState("");
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
+  const [vectorPoints, setVectorPoints] = useState([]);
+  const [neighborIndices, setNeighborIndices] = useState([]);
+  const [neighborDistances, setNeighborDistances] = useState([]);
+  const [vectorStatus, setVectorStatus] = useState("Idle");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadVectorSpace = async () => {
+      setVectorStatus("Loading");
+      try {
+        const response = await getJson("/category/vector-space");
+        if (!active) return;
+        setVectorPoints(response?.points_2d ?? []);
+        setVectorStatus(response?.points_2d?.length ? "Ready" : "Empty");
+      } catch (error) {
+        if (!active) return;
+        setVectorStatus("Failed");
+      }
+    };
+
+    loadVectorSpace();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async () => {
     const parsed = tryParseJson(inputText);
@@ -57,8 +89,14 @@ export default function CategoryEngine() {
     try {
       const response = await postJson("/category/generate-profile", parsed.value);
       setOutputText(formatJson(response));
+      const nnDistance = response?.quality?.nearest_neighbor_distance;
+      const nnSimilarity = response?.quality?.nearest_neighbor_similarity;
+      setNeighborIndices(response?.quality?.neighbor_indices ?? []);
+      setNeighborDistances(response?.quality?.neighbor_distances ?? []);
       setConsoleText(
-        `Profile generated. Traces: ${response?.traces?.length ?? 0}.`
+        `Profile generated. Traces: ${response?.traces?.length ?? 0}. ` +
+          `NN distance: ${formatMetric(nnDistance)}. ` +
+          `NN similarity: ${formatMetric(nnSimilarity)}.`
       );
     } catch (error) {
       setOutputText("");
@@ -110,7 +148,16 @@ export default function CategoryEngine() {
             </div>
 
             <div className="col-span-12 xl:col-span-4 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
-              <ChartSection />
+              <ChartSection
+                title="Category Vector Space"
+                subtitle={`UMAP projection with neighbor highlights (${vectorStatus}).`}
+              >
+                <CategoryNearestNeighbor
+                  points={vectorPoints}
+                  neighborIndices={neighborIndices}
+                  neighborDistances={neighborDistances}
+                />
+              </ChartSection>
             </div>
           </div>
         </div>
