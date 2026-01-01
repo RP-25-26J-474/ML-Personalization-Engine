@@ -19,6 +19,7 @@ class TempFilterResult:
     is_rejected: bool
     outcome: str
     anomaly_score: float
+    similarity_score: float
     reason: str | None
     features: list[float]
     trace: DecisionTrace
@@ -33,8 +34,8 @@ class TempUserDetectorService:
 
     def __init__(self, model: IsolationForest | None = None):
         self.model = model
-        self.quarantine_threshold = 0.65  # demo threshold (tune later)
-        self.reject_threshold = 0.9  # hard reject for high anomaly
+        self.quarantine_threshold = 0.6  # demo threshold (tune later)
+        self.reject_threshold = 0.85  # hard reject for high anomaly
 
     def train_global(self, feature_matrix: np.ndarray) -> None:
         self.model = new_iforest()
@@ -69,12 +70,13 @@ class TempUserDetectorService:
 
         if self.model is None:
             # Heuristic anomaly proxy for demo:
-            anomaly = min(
-                1.0,
-                0.5 * batch.events_agg.misclick_rate
-                + 0.1 * batch.events_agg.rage_clicks,
+            anomaly, detail = self._heuristic_anomaly(batch)
+            actions.append(
+                TraceAction(
+                    type="score_heuristic",
+                    details={"anomaly_score": anomaly, "components": detail},
+                )
             )
-            actions.append(TraceAction(type="score_heuristic", details={"anomaly_score": anomaly}))
         else:
             anomaly = score_anomaly(self.model, x)
             actions.append(
@@ -87,6 +89,8 @@ class TempUserDetectorService:
                     },
                 )
             )
+
+        similarity = self._similarity_score(batch)
 
         if anomaly >= self.reject_threshold:
             outcome = "reject"
@@ -108,6 +112,7 @@ class TempUserDetectorService:
             actions=actions,
             metrics={
                 "anomaly_score": anomaly,
+                "similarity_score": similarity,
                 "quarantine_threshold": self.quarantine_threshold,
                 "reject_threshold": self.reject_threshold,
             },
@@ -119,7 +124,82 @@ class TempUserDetectorService:
             is_rejected=outcome == "reject",
             outcome=outcome,
             anomaly_score=anomaly,
+            similarity_score=similarity,
             reason=reason,
             features=feats,
             trace=trace,
         )
+
+    def _heuristic_anomaly(self, batch: InteractionBatch) -> tuple[float, dict[str, float]]:
+        def norm(value: float, low: float, high: float) -> float:
+            return self._norm(value, low, high)
+
+        misclick_score = self._clamp01(batch.events_agg.misclick_rate)
+        rage_score = self._clamp01(batch.events_agg.rage_clicks / 6.0)
+        click_interval_score = 1.0 - norm(batch.events_agg.avg_click_interval_ms, 150.0, 600.0)
+        dwell_score = 1.0 - norm(batch.events_agg.avg_dwell_ms, 300.0, 2000.0)
+        scroll_score = norm(batch.events_agg.scroll_speed_px_s, 200.0, 700.0)
+
+        anomaly = (
+            0.35 * misclick_score
+            + 0.25 * rage_score
+            + 0.15 * click_interval_score
+            + 0.15 * dwell_score
+            + 0.10 * scroll_score
+        )
+
+        detail = {
+            "misclick_score": misclick_score,
+            "rage_score": rage_score,
+            "click_interval_score": click_interval_score,
+            "dwell_score": dwell_score,
+            "scroll_score": scroll_score,
+        }
+        return min(1.0, anomaly), detail
+
+    def _similarity_score(self, batch: InteractionBatch) -> float:
+        e = batch.events_agg
+        # Typical primary user interaction profile (demo baseline)
+        base = {
+            "click_count": 22.0,
+            "misclick_rate": 0.08,
+            "avg_click_interval_ms": 420.0,
+            "avg_dwell_ms": 1800.0,
+            "rage_clicks": 0.0,
+            "zoom_events": 1.0,
+            "scroll_speed_px_s": 260.0,
+        }
+
+        vec = [
+            self._norm(e.click_count, 5.0, 40.0),
+            self._clamp01(e.misclick_rate),
+            self._norm(e.avg_click_interval_ms, 150.0, 600.0),
+            self._norm(e.avg_dwell_ms, 300.0, 2000.0),
+            self._norm(e.rage_clicks, 0.0, 6.0),
+            self._norm(e.zoom_events, 0.0, 5.0),
+            self._norm(e.scroll_speed_px_s, 200.0, 700.0),
+        ]
+
+        base_vec = [
+            self._norm(base["click_count"], 5.0, 40.0),
+            self._clamp01(base["misclick_rate"]),
+            self._norm(base["avg_click_interval_ms"], 150.0, 600.0),
+            self._norm(base["avg_dwell_ms"], 300.0, 2000.0),
+            self._norm(base["rage_clicks"], 0.0, 6.0),
+            self._norm(base["zoom_events"], 0.0, 5.0),
+            self._norm(base["scroll_speed_px_s"], 200.0, 700.0),
+        ]
+
+        dist = float(np.linalg.norm(np.array(vec) - np.array(base_vec)))
+        max_dist = np.sqrt(len(vec))
+        similarity = 1.0 - (dist / max_dist if max_dist else 0.0)
+        return self._clamp01(similarity)
+
+    @staticmethod
+    def _clamp01(value: float) -> float:
+        return max(0.0, min(1.0, value))
+
+    def _norm(self, value: float, low: float, high: float) -> float:
+        if high <= low:
+            return 0.0
+        return self._clamp01((value - low) / (high - low))
