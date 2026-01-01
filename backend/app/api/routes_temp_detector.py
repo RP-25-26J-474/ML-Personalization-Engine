@@ -12,6 +12,8 @@ class TempScoreResponse(BaseModel):
     user_id: str
     batch_id: str
     quarantined: bool
+    rejected: bool
+    outcome: str
     anomaly_score: float
     reason: str | None
     trace: dict
@@ -24,6 +26,8 @@ def score_batch(batch: InteractionBatch):
         user_id=batch.user_id,
         batch_id=batch.batch_id,
         quarantined=res.is_quarantined,
+        rejected=res.is_rejected,
+        outcome=res.outcome,
         anomaly_score=res.anomaly_score,
         reason=res.reason,
         trace=res.trace.model_dump(),
@@ -33,6 +37,70 @@ def score_batch(batch: InteractionBatch):
 class TrainGlobalRequest(BaseModel):
     # For demo: accept feature vectors directly
     feature_matrix: list[list[float]]
+
+
+class TempScoreItem(BaseModel):
+    user_id: str
+    batch_id: str
+    outcome: str
+    quarantined: bool
+    rejected: bool
+    anomaly_score: float
+    reason: str | None
+    trace: dict
+    batch: dict
+
+
+class TempScoreBatchesRequest(BaseModel):
+    batches: list[InteractionBatch]
+
+
+class TempScoreBatchesResponse(BaseModel):
+    summary: dict
+    kept: list[TempScoreItem]
+    quarantined: list[TempScoreItem]
+    rejected: list[TempScoreItem]
+
+
+@router.post("/score-batches", response_model=TempScoreBatchesResponse)
+def score_batches(req: TempScoreBatchesRequest):
+    results = container.temp_detector.score_batches(req.batches)
+    kept: list[TempScoreItem] = []
+    quarantined: list[TempScoreItem] = []
+    rejected: list[TempScoreItem] = []
+
+    for batch, res in zip(req.batches, results):
+        item = TempScoreItem(
+            user_id=batch.user_id,
+            batch_id=batch.batch_id,
+            outcome=res.outcome,
+            quarantined=res.is_quarantined,
+            rejected=res.is_rejected,
+            anomaly_score=res.anomaly_score,
+            reason=res.reason,
+            trace=res.trace.model_dump(),
+            batch=batch.model_dump(),
+        )
+        if res.outcome == "keep":
+            kept.append(item)
+        elif res.outcome == "reject":
+            rejected.append(item)
+        else:
+            quarantined.append(item)
+
+    summary = {
+        "total": len(req.batches),
+        "kept": len(kept),
+        "quarantined": len(quarantined),
+        "rejected": len(rejected),
+    }
+
+    return TempScoreBatchesResponse(
+        summary=summary,
+        kept=kept,
+        quarantined=quarantined,
+        rejected=rejected,
+    )
 
 
 @router.post("/train-global")

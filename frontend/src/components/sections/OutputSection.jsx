@@ -7,10 +7,10 @@ export default function OutputSection({
   placeholder = "Output will be displayed here...",
 }) {
   return (
-    <div className="flex flex-col h-full p-2 gap-2">
+    <div className="flex flex-col h-full p-2 gap-2 w-full">
       <h2 className="text-md font-semibold text-center">{title}</h2>
 
-      <div className="relative h-full">
+      <div className="relative h-full w-full">
         <textarea
           className="textarea w-full h-full p-3 border border-primary/30 rounded bg-base-100 resize-none font-mono"
           placeholder={placeholder}
