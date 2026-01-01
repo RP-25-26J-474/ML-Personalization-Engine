@@ -16,6 +16,7 @@ class TempScoreResponse(BaseModel):
     outcome: str
     anomaly_score: float
     similarity_score: float
+    heuristic_components: dict
     reason: str | None
     trace: dict
 
@@ -31,6 +32,7 @@ def score_batch(batch: InteractionBatch):
         outcome=res.outcome,
         anomaly_score=res.anomaly_score,
         similarity_score=res.similarity_score,
+        heuristic_components=res.heuristic_components,
         reason=res.reason,
         trace=res.trace.model_dump(),
     )
@@ -49,6 +51,7 @@ class TempScoreItem(BaseModel):
     rejected: bool
     anomaly_score: float
     similarity_score: float
+    heuristic_components: dict
     reason: str | None
     trace: dict
     batch: dict
@@ -81,6 +84,7 @@ def score_batches(req: TempScoreBatchesRequest):
             rejected=res.is_rejected,
             anomaly_score=res.anomaly_score,
             similarity_score=res.similarity_score,
+            heuristic_components=res.heuristic_components,
             reason=res.reason,
             trace=res.trace.model_dump(),
             batch=batch.model_dump(),
@@ -97,6 +101,8 @@ def score_batches(req: TempScoreBatchesRequest):
         "kept": len(kept),
         "quarantined": len(quarantined),
         "rejected": len(rejected),
+        "quarantine_threshold": container.temp_detector.quarantine_threshold,
+        "reject_threshold": container.temp_detector.reject_threshold,
     }
 
     return TempScoreBatchesResponse(
