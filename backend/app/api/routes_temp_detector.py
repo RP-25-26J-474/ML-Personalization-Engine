@@ -15,6 +15,7 @@ class TempScoreResponse(BaseModel):
     rejected: bool
     outcome: str
     anomaly_score: float
+    similarity_score: float
     reason: str | None
     trace: dict
 
@@ -29,6 +30,7 @@ def score_batch(batch: InteractionBatch):
         rejected=res.is_rejected,
         outcome=res.outcome,
         anomaly_score=res.anomaly_score,
+        similarity_score=res.similarity_score,
         reason=res.reason,
         trace=res.trace.model_dump(),
     )
@@ -46,6 +48,7 @@ class TempScoreItem(BaseModel):
     quarantined: bool
     rejected: bool
     anomaly_score: float
+    similarity_score: float
     reason: str | None
     trace: dict
     batch: dict
@@ -77,6 +80,7 @@ def score_batches(req: TempScoreBatchesRequest):
             quarantined=res.is_quarantined,
             rejected=res.is_rejected,
             anomaly_score=res.anomaly_score,
+            similarity_score=res.similarity_score,
             reason=res.reason,
             trace=res.trace.model_dump(),
             batch=batch.model_dump(),

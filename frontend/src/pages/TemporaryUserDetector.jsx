@@ -10,7 +10,9 @@ import { formatJson, tryParseJson } from "../utils/json";
 import { TemporaryUserDetectorDefaultPayload } from "../constants";
 
 function TemporaryUserDetector() {
-  const [inputText, setInputText] = useState(formatJson(TemporaryUserDetectorDefaultPayload));
+  const [inputText, setInputText] = useState(
+    formatJson(TemporaryUserDetectorDefaultPayload)
+  );
   const [keptItems, setKeptItems] = useState([]);
   const [quarantinedItems, setQuarantinedItems] = useState([]);
   const [rejectedItems, setRejectedItems] = useState([]);
@@ -66,7 +68,7 @@ function TemporaryUserDetector() {
     items.map((item) => ({
       key: item.batch_id,
       title: `${item.user_id} | ${item.batch_id}`,
-      subtitle: `Anomaly Score: ${item.anomaly_score} • Similarity: ${item.decision}`,
+      subtitle: `Anomaly Score: ${item.anomaly_score} • Similarity: ${item.similarity_score}`,
       content: (
         <pre className="whitespace-pre-wrap text-xs font-mono">
           {formatJson(item.batch || {})}
