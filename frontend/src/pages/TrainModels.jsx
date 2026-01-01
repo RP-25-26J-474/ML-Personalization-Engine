@@ -219,7 +219,7 @@ function TrainModels() {
             <div className="col-span-12 xl:col-span-6 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
                 <div className="col-span-12 rounded-xl shadow-lg flex flex-col border-2 border-primary/70 bg-base-200/70 backdrop-blur">
-                  <div className="flex flex-col gap-4 px-5 py-5">
+                  <div className="flex flex-col gap-4 px-5 py-5 flex-1">
                     <div className="grid grid-cols-1 gap-3">
                       <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3">
                         <div className="text-xs text-base-content/60">Model Type</div>
@@ -327,7 +327,7 @@ function TrainModels() {
                       ) : null}
                     </div>
 
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3 mt-auto">
                       <div className="flex items-center gap-2 text-xs text-base-content/60">
                         <span className="w-2 h-2 rounded-full bg-success/70"></span>
                         {canTrain ? "Ready for training" : "Training not available"}
@@ -342,7 +342,7 @@ function TrainModels() {
                     </div>
                   </div>
                 </div>
-                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-50 flex flex-col">
+                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-20 flex flex-col">
                   <ConsoleSection value={consoleText} />
                 </div>
               </div>

@@ -28,9 +28,9 @@ export const navSections = [
     label: "Operations",
     items: [
       { to: "/train", label: "Train Models", subtitle: "Train personalization models" },
-      { to: "/pipelines", label: "Pipelines", subtitle: "Manage data pipelines" },
-      { to: "/monitoring", label: "Monitoring", subtitle: "Monitor system performance" },
-      { to: "/settings", label: "Settings", subtitle: "Configure system settings" },
+      // { to: "/pipelines", label: "Pipelines", subtitle: "Manage data pipelines" },
+      // { to: "/monitoring", label: "Monitoring", subtitle: "Monitor system performance" },
+      // { to: "/settings", label: "Settings", subtitle: "Configure system settings" },
     ],
   },
 ];
