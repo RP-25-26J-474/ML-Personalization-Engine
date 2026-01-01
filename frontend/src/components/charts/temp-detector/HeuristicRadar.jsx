@@ -73,7 +73,7 @@ export default function HeuristicRadar({ items = [] }) {
   }
 
   const width = 320;
-  const height = 220;
+  const height = 140;
   const padding = 30;
   const radius = Math.min(width, height) / 2 - padding;
   const cx = width / 2;

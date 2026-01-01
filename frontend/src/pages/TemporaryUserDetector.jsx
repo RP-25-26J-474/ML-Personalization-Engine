@@ -120,9 +120,14 @@ function TemporaryUserDetector() {
       key: "anomaly-distribution",
       label: "Anomaly Distribution",
       content: (
-        <ChartSection subtitle="Histogram with quarantine/reject thresholds">
-          <AnomalyDistribution items={allItems} />
-        </ChartSection>
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Histogram with quarantine/reject thresholds"
+            contentClassName="h-full"
+          >
+            <AnomalyDistribution items={allItems} />
+          </ChartSection>
+        </div>
       ),
     },
     {
@@ -130,9 +135,14 @@ function TemporaryUserDetector() {
       label: "Similarity vs Anomaly",
       description: "Scatter by outcome",
       content: (
-        <ChartSection subtitle="Similarity Score vs Anomaly Score">
-          <SimilarityScatter items={allItems} />
-        </ChartSection>
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Similarity Score vs Anomaly Score"
+            contentClassName="h-full"
+          >
+            <SimilarityScatter items={allItems} />
+          </ChartSection>
+        </div>
       ),
     },
     {
@@ -140,9 +150,14 @@ function TemporaryUserDetector() {
       label: "Heuristic Radar",
       description: "Average component scores per outcome",
       content: (
-        <ChartSection subtitle="Heuristic Component Scores">
-          <HeuristicRadar items={allItems} />
-        </ChartSection>
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Heuristic Component Scores"
+            contentClassName="h-full"
+          >
+            <HeuristicRadar items={allItems} />
+          </ChartSection>
+        </div>
       ),
     },
   ];
@@ -150,10 +165,10 @@ function TemporaryUserDetector() {
   const normalTabsContent = [
     {
       key: "summary",
-      label: "Score Summary",
+      label: "Output Summary",
       content: (
-        <div className="h-min-70">
-          <WindowTabs tabs={tabs} />
+        <div className="min-h-50">
+          <WindowTabs tabs={tabs} contentClassName="max-h-95 overflow-auto"/>
         </div>
       ),
     },
@@ -161,8 +176,8 @@ function TemporaryUserDetector() {
       key: "charts",
       label: "Charts",
       content: (
-        <div className="min-h-70">
-          <WindowTabs tabs={charts} />
+        <div className="min-h-50 h-full">
+          <WindowTabs tabs={charts} contentClassName="h-full overflow-hidden" />
         </div>
       ),
     },
@@ -190,8 +205,11 @@ function TemporaryUserDetector() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
-              <NormalTabs tabs={normalTabsContent} />
+            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
+              <NormalTabs
+                tabs={normalTabsContent}
+                className="h-full"
+              />
             </div>
           </div>
         </div>

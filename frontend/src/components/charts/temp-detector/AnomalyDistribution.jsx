@@ -42,7 +42,7 @@ export default function AnomalyDistribution({
   }
 
   const width = 320;
-  const height = 200;
+  const height = 140;
   const padding = 26;
   const plotWidth = width - padding * 2;
   const plotHeight = height - padding * 2;
