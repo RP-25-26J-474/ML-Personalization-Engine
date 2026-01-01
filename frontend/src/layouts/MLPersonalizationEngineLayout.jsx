@@ -114,7 +114,7 @@ function MLPersonalizationEngineLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-auto">
         <header className="sticky border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
           <img
             src={logos.aura}
@@ -125,8 +125,8 @@ function MLPersonalizationEngineLayout() {
           <ThemeButton />
         </header>
 
-        <main className="flex-1 min-h-0 bg-gradient-to-b from-base-300 via-base-100 to-base-200 flex flex-col">
-          <div className="max-w-9xl px-10 py-8 flex-1 min-h-0 flex flex-col">
+         <main className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-base-300 via-base-100 to-base-200">
+          <div className="max-w-9xl px-10 py-8 min-h-0 flex-1 min-h-0">
             <div className="flex flex-row items-center mb-6 justify-between">
               <div className="text-2xl font-semibold">{pageName}</div>
               <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>

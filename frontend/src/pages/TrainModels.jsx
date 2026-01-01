@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
 import { getJson, postJson } from "../api/MLPEClient";
+import IsolationForestTrees from "../components/charts/temp-detector/IsolationForestTrees";
 
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
@@ -11,6 +12,7 @@ function TrainModels() {
   const [tempMinSamples, setTempMinSamples] = useState(10);
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);
+  const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isTraining, setIsTraining] = useState(false);
   const [points, setPoints] = useState([]);
@@ -79,6 +81,7 @@ function TrainModels() {
     let cancelled = false;
     if (modelType !== "temp-detector") {
       setTempMetrics((prev) => ({ ...prev, status: "Idle" }));
+      setTempForest({ status: "idle", trees: [] });
       return () => {
         cancelled = true;
       };
@@ -112,6 +115,31 @@ function TrainModels() {
     };
 
     loadStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [modelType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (modelType !== "temp-detector") {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadForest = async () => {
+      try {
+        const forest = await getJson("/temp-detector/forest?max_trees=5");
+        if (cancelled) return;
+        setTempForest(forest || { status: "idle", trees: [] });
+      } catch (error) {
+        if (cancelled) return;
+        setTempForest({ status: "failed", trees: [] });
+      }
+    };
+
+    loadForest();
     return () => {
       cancelled = true;
     };
@@ -164,6 +192,7 @@ function TrainModels() {
               min_samples: tempMinSamples,
             });
         const status = await getJson("/temp-detector/status");
+        const forest = await getJson("/temp-detector/forest?max_trees=5");
         setTempMetrics({
           status: response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
@@ -174,6 +203,7 @@ function TrainModels() {
           baselines: status?.baselines?.users ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
+        setTempForest(forest || { status: "idle", trees: [] });
         setConsoleText(
           response?.status === "trained"
             ? `Training complete. Samples: ${response?.n_samples ?? 0}.`
@@ -438,7 +468,16 @@ function TrainModels() {
                 )}
                 <div className="flex-1 min-h-0 border border-primary/20 rounded-lg bg-base-300/40">
                   {modelType === "category" ? (
-                    <CategoryModelVectorSpace points={points} />
+                    <div className="h-full min-h-[50vh]">
+                      <CategoryModelVectorSpace points={points} />
+                    </div>
+                  ) : modelType === "temp-detector" ? (
+                    <div className="max-h-[40vh] overflow-auto h-full">
+                      <IsolationForestTrees
+                      trees={tempForest?.trees || []}
+                      maxDepth={12}
+                    />
+                    </div>
                   ) : (
                     <div className="h-full flex items-center justify-center text-base-content/50">
                       Visualization not available.

@@ -244,3 +244,52 @@ def history(user_id: str | None = Query(default=None)):
             for row in rows
         ],
     }
+
+
+def _serialize_tree(estimator, feature_names: list[str]) -> dict:
+    tree = estimator.tree_
+
+    def node(idx: int, depth: int) -> dict:
+        feature_index = int(tree.feature[idx])
+        is_leaf = tree.children_left[idx] == tree.children_right[idx]
+        data = {
+            "id": int(idx),
+            "depth": int(depth),
+            "samples": int(tree.n_node_samples[idx]),
+            "feature_index": None if feature_index < 0 else feature_index,
+            "feature": feature_names[feature_index] if feature_index >= 0 else None,
+            "threshold": None if feature_index < 0 else float(tree.threshold[idx]),
+        }
+        if not is_leaf:
+            data["left"] = node(int(tree.children_left[idx]), depth + 1)
+            data["right"] = node(int(tree.children_right[idx]), depth + 1)
+        return data
+
+    return {
+        "node_count": int(tree.node_count),
+        "max_depth": int(tree.max_depth),
+        "root": node(0, 0),
+    }
+
+
+@router.get("/forest")
+def forest(max_trees: int = Query(default=3, ge=1, le=20)):
+    model = container.temp_detector.model
+    if model is None:
+        return {"status": "untrained", "trees": [], "n_estimators": 0}
+
+    estimators = list(model.estimators_ or [])
+    count = min(max_trees, len(estimators))
+    trees = [
+        {
+            "index": idx,
+            "tree": _serialize_tree(est, container.temp_detector.feature_order),
+        }
+        for idx, est in enumerate(estimators[:count])
+    ]
+
+    return {
+        "status": "ready",
+        "n_estimators": len(estimators),
+        "trees": trees,
+    }
