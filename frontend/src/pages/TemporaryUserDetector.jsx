@@ -3,6 +3,7 @@ import InputSection from "../components/sections/InputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
 import Tabs from "../components/Tabs/Tabs";
+import Accordian from "../components/Accordian/Accordian";
 import { postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
@@ -10,9 +11,9 @@ import { TemporaryUserDetectorDefaultPayload } from "../constants";
 
 function TemporaryUserDetector() {
   const [inputText, setInputText] = useState(formatJson(TemporaryUserDetectorDefaultPayload));
-  const [keptText, setKeptText] = useState("");
-  const [quarantinedText, setQuarantinedText] = useState("");
-  const [rejectedText, setRejectedText] = useState("");
+  const [keptItems, setKeptItems] = useState([]);
+  const [quarantinedItems, setQuarantinedItems] = useState([]);
+  const [rejectedItems, setRejectedItems] = useState([]);
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -35,9 +36,9 @@ function TemporaryUserDetector() {
       }
 
       const response = await postJson("/temp-detector/score-batches", payload);
-      setKeptText(formatJson(response?.kept || []));
-      setQuarantinedText(formatJson(response?.quarantined || []));
-      setRejectedText(formatJson(response?.rejected || []));
+      setKeptItems(response?.kept || []);
+      setQuarantinedItems(response?.quarantined || []);
+      setRejectedItems(response?.rejected || []);
       const summary = response?.summary;
       setConsoleText(
         summary
@@ -45,9 +46,9 @@ function TemporaryUserDetector() {
           : "Batches scored."
       );
     } catch (error) {
-      setKeptText("");
-      setQuarantinedText("");
-      setRejectedText("");
+      setKeptItems([]);
+      setQuarantinedItems([]);
+      setRejectedItems([]);
       setConsoleText(
         `Request failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
@@ -58,28 +59,36 @@ function TemporaryUserDetector() {
     }
   };
 
+  const formatScore = (value) =>
+    typeof value === "number" ? value.toFixed(3) : "n/a";
+
+  const toAccordianItems = (items) =>
+    items.map((item) => ({
+      key: item.batch_id,
+      title: `${item.user_id} | ${item.batch_id}`,
+      subtitle: `Anomaly Score: ${item.anomaly_score} • Similarity: ${item.decision}`,
+      content: (
+        <pre className="whitespace-pre-wrap text-xs font-mono">
+          {formatJson(item.batch || {})}
+        </pre>
+      ),
+    }));
+
   const tabs = [
     {
       key: "legit",
       label: "Legit Batches",
       content: (
-        <textarea
-          className="textarea w-full min-h-64 p-3 border border-primary/30 rounded bg-base-100 resize-none text-sm font-mono text-primary"
-          placeholder="Kept batches will be listed here..."
-          value={keptText || ""}
-          readOnly
-        />
+        <Accordian name="legit-batches" items={toAccordianItems(keptItems)} />
       ),
     },
     {
       key: "quarantined",
       label: "Quarantined Batches",
       content: (
-        <textarea
-          className="textarea w-full min-h-64 p-3 border border-primary/30 rounded bg-base-100 resize-none text-sm font-mono text-primary"
-          placeholder="Quarantined batches will be listed here..."
-          value={quarantinedText || ""}
-          readOnly
+        <Accordian
+          name="quarantined-batches"
+          items={toAccordianItems(quarantinedItems)}
         />
       ),
     },
@@ -87,11 +96,9 @@ function TemporaryUserDetector() {
       key: "rejected",
       label: "Rejected Batches",
       content: (
-        <textarea
-          className="textarea w-full min-h-64 p-3 border border-primary/30 rounded bg-base-100 resize-none text-sm font-mono text-primary"
-          placeholder="Rejected batches will be listed here..."
-          value={rejectedText || ""}
-          readOnly
+        <Accordian
+          name="rejected-batches"
+          items={toAccordianItems(rejectedItems)}
         />
       ),
     },
