@@ -27,7 +27,9 @@ function TemporaryUserDetector() {
 
   const fetchHistory = async (userId) => {
     const response = await getJson(
-      userId ? `/temp-detector/history?user_id=${userId}` : "/temp-detector/history"
+      userId
+        ? `/temp-detector/history?user_id=${userId}`
+        : "/temp-detector/history"
     );
     setHistoryItems(response?.items || []);
   };
@@ -91,9 +93,9 @@ function TemporaryUserDetector() {
     items.map((item) => ({
       key: item.batch_id,
       title: `${item.batch_id} | ${item.outcome || "unknown"}`,
-      subtitle: `Anomaly: ${formatScore(item.anomaly_score)} | Similarity: ${formatScore(
-        item.similarity_score
-      )}`,
+      subtitle: `Anomaly: ${formatScore(
+        item.anomaly_score
+      )} | Similarity: ${formatScore(item.similarity_score)}`,
       content: (
         <pre className="whitespace-pre-wrap text-xs font-mono">
           {formatJson(item.batch || {})}
@@ -141,7 +143,7 @@ function TemporaryUserDetector() {
       key: "anomaly-distribution",
       label: "Anomaly Distribution",
       content: (
-        <div className="w-full h-72 overflow-hidden">
+        <div className="w-full h-full overflow-hidden">
           <ChartSection
             subtitle="Histogram with quarantine/reject thresholds"
             contentClassName="h-full"
@@ -156,7 +158,7 @@ function TemporaryUserDetector() {
       label: "Similarity vs Anomaly",
       description: "Scatter by outcome",
       content: (
-        <div className="w-full h-72 overflow-hidden">
+        <div className="w-full h-full overflow-hidden">
           <ChartSection
             subtitle="Similarity Score vs Anomaly Score"
             contentClassName="h-full"
@@ -171,7 +173,7 @@ function TemporaryUserDetector() {
       label: "Heuristic Radar",
       description: "Average component scores per outcome",
       content: (
-        <div className="w-full h-72 overflow-hidden">
+        <div className="w-full h-full overflow-hidden">
           <ChartSection
             subtitle="Heuristic Component Scores"
             contentClassName="h-full"
@@ -188,18 +190,14 @@ function TemporaryUserDetector() {
       key: "summary",
       label: "Output Summary",
       content: (
-        <div className="min-h-50">
-          <WindowTabs tabs={tabs} contentClassName="max-h-95 overflow-auto"/>
-        </div>
+        <WindowTabs tabs={tabs} contentClassName="overflow-auto" />
       ),
     },
     {
       key: "charts",
       label: "Charts",
       content: (
-        <div className="min-h-50 h-full">
-          <WindowTabs tabs={charts} contentClassName="h-full overflow-hidden" />
-        </div>
+        <WindowTabs tabs={charts} contentClassName="overflow-auto" />
       ),
     },
   ];
@@ -227,10 +225,7 @@ function TemporaryUserDetector() {
             </div>
 
             <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
-              <NormalTabs
-                tabs={normalTabsContent}
-                className="h-full"
-              />
+              <NormalTabs tabs={normalTabsContent} className="h-full" />
             </div>
           </div>
         </div>
