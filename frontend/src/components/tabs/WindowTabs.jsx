@@ -1,6 +1,12 @@
 import { Fragment, useId, useState } from "react";
 
-export default function Tabs({ tabs, defaultIndex = 0, name, className = "" }) {
+export default function WindowTabs({
+  tabs,
+  defaultIndex = 0,
+  name,
+  className = "",
+  contentClassName = "",
+}) {
   const autoName = useId();
   const [activeIndex, setActiveIndex] = useState(defaultIndex);
   const groupName = name || autoName;
@@ -21,7 +27,9 @@ export default function Tabs({ tabs, defaultIndex = 0, name, className = "" }) {
             checked={activeIndex === index}
             onChange={() => setActiveIndex(index)}
           />
-          <div className="tab-content bg-base-100 border-base-300 p-4">
+          <div
+            className={`tab-content bg-base-100 border-base-300 p-4 ${contentClassName}`.trim()}
+          >
             {activeIndex === index ? tab.content : null}
           </div>
         </Fragment>

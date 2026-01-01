@@ -2,8 +2,12 @@ import { useState } from "react";
 import InputSection from "../components/sections/InputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
-import Tabs from "../components/Tabs/Tabs";
-import Accordian from "../components/Accordian/Accordian";
+import WindowTabs from "../components/tabs/WindowTabs";
+import NormalTabs from "../components/tabs/NormalTabs";
+import Accordian from "../components/accordian/Accordian";
+import AnomalyDistribution from "../components/charts/temp-detector/AnomalyDistribution";
+import SimilarityScatter from "../components/charts/temp-detector/SimilarityScatter";
+import HeuristicRadar from "../components/charts/temp-detector/HeuristicRadar";
 import { postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
@@ -16,6 +20,7 @@ function TemporaryUserDetector() {
   const [keptItems, setKeptItems] = useState([]);
   const [quarantinedItems, setQuarantinedItems] = useState([]);
   const [rejectedItems, setRejectedItems] = useState([]);
+  const [scoreSummary, setScoreSummary] = useState(null);
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,6 +46,7 @@ function TemporaryUserDetector() {
       setKeptItems(response?.kept || []);
       setQuarantinedItems(response?.quarantined || []);
       setRejectedItems(response?.rejected || []);
+      setScoreSummary(response?.summary || null);
       const summary = response?.summary;
       setConsoleText(
         summary
@@ -51,6 +57,7 @@ function TemporaryUserDetector() {
       setKeptItems([]);
       setQuarantinedItems([]);
       setRejectedItems([]);
+      setScoreSummary(null);
       setConsoleText(
         `Request failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
@@ -75,6 +82,8 @@ function TemporaryUserDetector() {
         </pre>
       ),
     }));
+
+  const allItems = [...keptItems, ...quarantinedItems, ...rejectedItems];
 
   const tabs = [
     {
@@ -106,6 +115,74 @@ function TemporaryUserDetector() {
     },
   ];
 
+  const charts = [
+    {
+      key: "anomaly-distribution",
+      label: "Anomaly Distribution",
+      content: (
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Histogram with quarantine/reject thresholds"
+            contentClassName="h-full"
+          >
+            <AnomalyDistribution items={allItems} />
+          </ChartSection>
+        </div>
+      ),
+    },
+    {
+      key: "similarity-scatter",
+      label: "Similarity vs Anomaly",
+      description: "Scatter by outcome",
+      content: (
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Similarity Score vs Anomaly Score"
+            contentClassName="h-full"
+          >
+            <SimilarityScatter items={allItems} />
+          </ChartSection>
+        </div>
+      ),
+    },
+    {
+      key: "heuristic-radar",
+      label: "Heuristic Radar",
+      description: "Average component scores per outcome",
+      content: (
+        <div className="w-full overflow-hidden">
+          <ChartSection
+            subtitle="Heuristic Component Scores"
+            contentClassName="h-full"
+          >
+            <HeuristicRadar items={allItems} />
+          </ChartSection>
+        </div>
+      ),
+    },
+  ];
+
+  const normalTabsContent = [
+    {
+      key: "summary",
+      label: "Output Summary",
+      content: (
+        <div className="min-h-50">
+          <WindowTabs tabs={tabs} contentClassName="max-h-95 overflow-auto"/>
+        </div>
+      ),
+    },
+    {
+      key: "charts",
+      label: "Charts",
+      content: (
+        <div className="min-h-50 h-full">
+          <WindowTabs tabs={charts} contentClassName="h-full overflow-hidden" />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 min-h-0 overflow-hidden">
@@ -128,15 +205,11 @@ function TemporaryUserDetector() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
-              <div className="flex-1 min-h-0 flex flex-col gap-3">
-                <div className="min-h-70">
-                  <Tabs tabs={tabs} />
-                </div>
-                <div className="flex-1 min-h-0">
-                  <ChartSection emptyLabel="Anomaly charts coming soon." />
-                </div>
-              </div>
+            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
+              <NormalTabs
+                tabs={normalTabsContent}
+                className="h-full"
+              />
             </div>
           </div>
         </div>

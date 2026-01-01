@@ -20,6 +20,7 @@ class TempFilterResult:
     outcome: str
     anomaly_score: float
     similarity_score: float
+    heuristic_components: dict[str, float]
     reason: str | None
     features: list[float]
     trace: DecisionTrace
@@ -68,13 +69,17 @@ class TempUserDetectorService:
             )
         ]
 
+        heuristic_components = self._heuristic_components(batch)
         if self.model is None:
             # Heuristic anomaly proxy for demo:
-            anomaly, detail = self._heuristic_anomaly(batch)
+            anomaly = self._heuristic_anomaly_from_components(heuristic_components)
             actions.append(
                 TraceAction(
                     type="score_heuristic",
-                    details={"anomaly_score": anomaly, "components": detail},
+                    details={
+                        "anomaly_score": anomaly,
+                        "components": heuristic_components,
+                    },
                 )
             )
         else:
@@ -86,6 +91,7 @@ class TempUserDetectorService:
                         "anomaly_score": anomaly,
                         "quarantine_threshold": self.quarantine_threshold,
                         "reject_threshold": self.reject_threshold,
+                        "heuristic_components": heuristic_components,
                     },
                 )
             )
@@ -125,37 +131,34 @@ class TempUserDetectorService:
             outcome=outcome,
             anomaly_score=anomaly,
             similarity_score=similarity,
+            heuristic_components=heuristic_components,
             reason=reason,
             features=feats,
             trace=trace,
         )
 
-    def _heuristic_anomaly(self, batch: InteractionBatch) -> tuple[float, dict[str, float]]:
+    def _heuristic_components(self, batch: InteractionBatch) -> dict[str, float]:
         def norm(value: float, low: float, high: float) -> float:
             return self._norm(value, low, high)
 
-        misclick_score = self._clamp01(batch.events_agg.misclick_rate)
-        rage_score = self._clamp01(batch.events_agg.rage_clicks / 6.0)
-        click_interval_score = 1.0 - norm(batch.events_agg.avg_click_interval_ms, 150.0, 600.0)
-        dwell_score = 1.0 - norm(batch.events_agg.avg_dwell_ms, 300.0, 2000.0)
-        scroll_score = norm(batch.events_agg.scroll_speed_px_s, 200.0, 700.0)
-
-        anomaly = (
-            0.35 * misclick_score
-            + 0.25 * rage_score
-            + 0.15 * click_interval_score
-            + 0.15 * dwell_score
-            + 0.10 * scroll_score
-        )
-
-        detail = {
-            "misclick_score": misclick_score,
-            "rage_score": rage_score,
-            "click_interval_score": click_interval_score,
-            "dwell_score": dwell_score,
-            "scroll_score": scroll_score,
+        return {
+            "misclick_score": self._clamp01(batch.events_agg.misclick_rate),
+            "rage_score": self._clamp01(batch.events_agg.rage_clicks / 6.0),
+            "click_interval_score": 1.0
+            - norm(batch.events_agg.avg_click_interval_ms, 150.0, 600.0),
+            "dwell_score": 1.0 - norm(batch.events_agg.avg_dwell_ms, 300.0, 2000.0),
+            "scroll_score": norm(batch.events_agg.scroll_speed_px_s, 200.0, 700.0),
         }
-        return min(1.0, anomaly), detail
+
+    def _heuristic_anomaly_from_components(self, components: dict[str, float]) -> float:
+        anomaly = (
+            0.35 * components.get("misclick_score", 0.0)
+            + 0.25 * components.get("rage_score", 0.0)
+            + 0.15 * components.get("click_interval_score", 0.0)
+            + 0.15 * components.get("dwell_score", 0.0)
+            + 0.10 * components.get("scroll_score", 0.0)
+        )
+        return min(1.0, anomaly)
 
     def _similarity_score(self, batch: InteractionBatch) -> float:
         e = batch.events_agg
