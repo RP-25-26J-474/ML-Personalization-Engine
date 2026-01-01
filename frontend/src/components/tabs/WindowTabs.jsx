@@ -1,6 +1,6 @@
 import { Fragment, useId, useState } from "react";
 
-export default function Tabs({ tabs, defaultIndex = 0, name, className = "" }) {
+export default function WindowTabs({ tabs, defaultIndex = 0, name, className = "" }) {
   const autoName = useId();
   const [activeIndex, setActiveIndex] = useState(defaultIndex);
   const groupName = name || autoName;
