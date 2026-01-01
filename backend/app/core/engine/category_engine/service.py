@@ -15,12 +15,19 @@ from app.core.engine.category_engine.model_knn import (
     train_knn,
 )
 from app.core.engine.category_engine.synth_data import generate_synth_survey
+from app.core.storage.artifacts.artifact_store import ArtifactStore
+
+CATEGORY_BEST_KEY = "category_engine/category_best"
 
 
 @dataclass
 class CategoryResult:
     profile_dict: Dict[str, Any]
     confidence: float
+    nearest_neighbor_distance: float
+    nearest_neighbor_similarity: float
+    neighbor_indices: list[int]
+    neighbor_distances: list[float]
     trace: DecisionTrace
 
 
@@ -70,18 +77,41 @@ def weighted_aggregate(profiles: list[dict], weights: np.ndarray) -> dict:
 
 
 class CategoryEngineService:
-    def __init__(self, artifacts: KNNArtifacts | None = None):
+    def __init__(
+        self,
+        artifacts: KNNArtifacts | None = None,
+        artifact_store: ArtifactStore | None = None,
+    ):
+        self.artifact_store = artifact_store or ArtifactStore()
         self.artifacts = artifacts
+        if self.artifacts is None:
+            self.artifacts = self._load_best()
+
+    def _load_best(self) -> KNNArtifacts | None:
+        return self.artifact_store.load(CATEGORY_BEST_KEY)
+
+    def _save_best(self) -> None:
+        if self.artifacts is not None:
+            self.artifact_store.save(CATEGORY_BEST_KEY, self.artifacts)
+
+    def _ensure_artifacts(self, n: int = 400) -> None:
+        if self.artifacts is None:
+            self.artifacts = self._load_best()
+        if self.artifacts is None:
+            self.train_from_synth(n=n)
+
+    def get_artifacts(self, n: int = 400) -> KNNArtifacts:
+        self._ensure_artifacts(n=n)
+        return self.artifacts
 
     def train_from_synth(self, n: int = 400) -> None:
         Xdicts, profiles = generate_synth_survey(n=n)
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
         self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
+        self._save_best()
 
     def generate(self, onboarding: OnboardingResult) -> CategoryResult:
-        if self.artifacts is None:
-            # auto-train synth for demo
-            self.train_from_synth(n=400)
+        self._ensure_artifacts(n=400)
 
         qdict = flatten_impairment_probs(onboarding)
         q = build_query_vector(qdict)
@@ -95,6 +125,13 @@ class CategoryEngineService:
         eps = 1e-6
         weights = 1.0 / (dists + eps)
         weights = weights / np.sum(weights)
+
+        neighbor_indices = idxs.tolist()
+        neighbor_distances = dists.tolist()
+
+        nearest_distance = float(np.min(dists))
+        nearest_idx = int(idxs[int(np.argmin(dists))])
+        nearest_similarity = float(max(0.0, min(1.0, 1.0 - nearest_distance)))
 
         neighbor_profiles = [self.artifacts.profiles[i] for i in idxs]
         agg = weighted_aggregate(neighbor_profiles, weights)
@@ -111,11 +148,25 @@ class CategoryEngineService:
             actions=[
                 TraceAction(type="build_query_vector", details={"q": qdict}),
                 TraceAction(type="knn_retrieve", details={"k": len(idxs), "indices": idxs.tolist(), "distances": dists.tolist()}),
+                TraceAction(type="nearest_neighbor", details={"index": nearest_idx, "distance": nearest_distance}),
                 TraceAction(type="aggregate_weighted", details={"weights": weights.tolist()}),
                 TraceAction(type="clamp", details={}),
             ],
-            metrics={"avg_neighbor_distance": avg_dist, "confidence_overall": confidence},
+            metrics={
+                "avg_neighbor_distance": avg_dist,
+                "nearest_neighbor_distance": nearest_distance,
+                "nearest_neighbor_similarity": nearest_similarity,
+                "confidence_overall": confidence,
+            },
             warnings=[],
         )
 
-        return CategoryResult(profile_dict=agg, confidence=confidence, trace=trace)
+        return CategoryResult(
+            profile_dict=agg,
+            confidence=confidence,
+            nearest_neighbor_distance=nearest_distance,
+            nearest_neighbor_similarity=nearest_similarity,
+            neighbor_indices=neighbor_indices,
+            neighbor_distances=neighbor_distances,
+            trace=trace,
+        )

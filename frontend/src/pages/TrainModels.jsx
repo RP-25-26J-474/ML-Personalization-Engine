@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ConsoleSection from "../components/sections/ConsoleSection";
-import CategoryModelVectorSpace from "../components/charts/CategoryModelVectorSpace";
+import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
 import { getJson, postJson } from "../api/MLPEClient";
 
 function TrainModels() {
@@ -17,6 +17,48 @@ function TrainModels() {
   });
 
   const canTrain = modelType === "category";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (modelType !== "category") {
+      setPoints([]);
+      setMetrics((prev) => ({ ...prev, status: "Idle" }));
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadVectorSpace = async () => {
+      setConsoleText("Loading existing category vector space...");
+      setMetrics((prev) => ({ ...prev, status: "Loading..." }));
+      try {
+        const vectorSpace = await getJson("/category/vector-space-3d");
+        if (cancelled) return;
+        setPoints(vectorSpace?.points || []);
+        setMetrics((prev) => ({
+          ...prev,
+          samples: vectorSpace?.points?.length ?? 0,
+          features: vectorSpace?.feature_order?.length ?? 0,
+          status: vectorSpace?.points?.length ? "Ready" : "Idle",
+          lastRun: new Date().toLocaleTimeString(),
+        }));
+        setConsoleText("Vector space loaded.");
+      } catch (error) {
+        if (cancelled) return;
+        setConsoleText(
+          `Load failed: ${error.message}${
+            error.data ? ` | ${JSON.stringify(error.data)}` : ""
+          }`
+        );
+        setMetrics((prev) => ({ ...prev, status: "Failed" }));
+      }
+    };
+
+    loadVectorSpace();
+    return () => {
+      cancelled = true;
+    };
+  }, [modelType]);
 
   const handleTrain = async () => {
     if (!canTrain) {
@@ -114,7 +156,7 @@ function TrainModels() {
                     </div>
                   </div>
                 </div>
-                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-60 flex flex-col">
+                <div className="col-span-12 bg-base-200 rounded-xl shadow-lg border-2 border-primary/70 min-h-50 flex flex-col">
                   <ConsoleSection value={consoleText} />
                 </div>
               </div>

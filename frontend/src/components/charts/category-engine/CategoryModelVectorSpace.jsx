@@ -126,7 +126,7 @@ export default function CategoryModelVectorSpace({ points = [] }) {
 
   if (!normalized.length) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm opacity-70">
+      <div className="flex-1 flex items-center justify-center text-sm opacity-70 h-full">
         No vector space data yet.
       </div>
     );
