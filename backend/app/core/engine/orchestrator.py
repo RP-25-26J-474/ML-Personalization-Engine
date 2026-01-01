@@ -83,6 +83,8 @@ class Orchestrator:
         quality = {
             "nearest_neighbor_distance": cat.nearest_neighbor_distance,
             "nearest_neighbor_similarity": cat.nearest_neighbor_similarity,
+            "neighbor_indices": cat.neighbor_indices,
+            "neighbor_distances": cat.neighbor_distances,
         }
         return OrchestratorResult(profile=profile, diff=d, traces=traces, quality=quality)
 

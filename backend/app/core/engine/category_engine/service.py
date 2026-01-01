@@ -26,6 +26,8 @@ class CategoryResult:
     confidence: float
     nearest_neighbor_distance: float
     nearest_neighbor_similarity: float
+    neighbor_indices: list[int]
+    neighbor_distances: list[float]
     trace: DecisionTrace
 
 
@@ -124,6 +126,9 @@ class CategoryEngineService:
         weights = 1.0 / (dists + eps)
         weights = weights / np.sum(weights)
 
+        neighbor_indices = idxs.tolist()
+        neighbor_distances = dists.tolist()
+
         nearest_distance = float(np.min(dists))
         nearest_idx = int(idxs[int(np.argmin(dists))])
         nearest_similarity = float(max(0.0, min(1.0, 1.0 - nearest_distance)))
@@ -161,5 +166,7 @@ class CategoryEngineService:
             confidence=confidence,
             nearest_neighbor_distance=nearest_distance,
             nearest_neighbor_similarity=nearest_similarity,
+            neighbor_indices=neighbor_indices,
+            neighbor_distances=neighbor_distances,
             trace=trace,
         )
