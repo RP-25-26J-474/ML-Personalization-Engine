@@ -130,7 +130,7 @@ function TrainModels() {
 
     const loadForest = async () => {
       try {
-        const forest = await getJson("/temp-detector/forest?max_trees=5");
+        const forest = await getJson("/temp-detector/forest?max_trees=12");
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
       } catch (error) {
@@ -193,7 +193,7 @@ function TrainModels() {
                 min_samples: tempMinSamples,
               });
         const status = await getJson("/temp-detector/status");
-        const forest = await getJson("/temp-detector/forest?max_trees=5");
+        const forest = await getJson("/temp-detector/forest?max_trees=12");
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
