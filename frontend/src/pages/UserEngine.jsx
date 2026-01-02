@@ -6,10 +6,16 @@ import ChartSection from "../components/sections/ChartSection";
 import { postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
-import { UserEngineDefaultPayload } from "../constants";
+import {
+  UserEngineDefaultPayload,
+  UserEngineBatchDefaultPayload,
+} from "../constants";
 
 export default function UserEngine() {
-  const [inputText, setInputText] = useState(formatJson(UserEngineDefaultPayload));
+  const [mode, setMode] = useState("single");
+  const [inputText, setInputText] = useState(
+    formatJson(UserEngineDefaultPayload)
+  );
   const [outputText, setOutputText] = useState("");
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
@@ -22,10 +28,12 @@ export default function UserEngine() {
     }
 
     setIsLoading(true);
-    setConsoleText("Updating user profile via /user/update-profile...");
+    const endpoint =
+      mode === "batch" ? "/user/update-profile-batch" : "/user/update-profile";
+    setConsoleText(`Updating user profile via ${endpoint}...`);
 
     try {
-      const response = await postJson("/user/update-profile", parsed.value);
+      const response = await postJson(endpoint, parsed.value);
       setOutputText(formatJson(response));
       setConsoleText(
         `Update complete. Quarantined: ${
@@ -62,8 +70,41 @@ export default function UserEngine() {
             <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
                 <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
+                  <div className="flex items-center justify-between px-4 pt-4">
+                    <div className="text-sm font-semibold">Mode</div>
+                    <div className="join">
+                      <button
+                        className={`btn btn-xs join-item ${
+                          mode === "single" ? "btn-primary" : "btn-ghost"
+                        }`}
+                        onClick={() => {
+                          setMode("single");
+                          setInputText(formatJson(UserEngineDefaultPayload));
+                        }}
+                        type="button"
+                      >
+                        Single
+                      </button>
+                      <button
+                        className={`btn btn-xs join-item ${
+                          mode === "batch" ? "btn-primary" : "btn-ghost"
+                        }`}
+                        onClick={() => {
+                          setMode("batch");
+                          setInputText(
+                            formatJson(UserEngineBatchDefaultPayload)
+                          );
+                        }}
+                        type="button"
+                      >
+                        Batch
+                      </button>
+                    </div>
+                  </div>
                   <InputSection
-                    title="Interaction Batch"
+                    title={
+                      mode === "batch" ? "Interaction Batches" : "Interaction Batch"
+                    }
                     value={inputText}
                     onChange={setInputText}
                     onSubmit={handleSubmit}

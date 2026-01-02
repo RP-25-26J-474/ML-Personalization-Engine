@@ -268,3 +268,80 @@ export const UserEngineDefaultPayload = {
     input_lag_ms_est: 34,
   },
 };
+
+export const UserEngineBatchDefaultPayload = {
+  batches: [
+    {
+      user_id: "u_001",
+      batch_id: "b_keep_1",
+      captured_at: "2025-10-06T11:25:00Z",
+      page_context: {
+        domain: "example.com",
+        route: "/checkout",
+        app_type: "web",
+      },
+      events_agg: {
+        click_count: 24,
+        misclick_rate: 0.08,
+        avg_click_interval_ms: 430,
+        avg_dwell_ms: 2100,
+        rage_clicks: 0,
+        zoom_events: 1,
+        scroll_speed_px_s: 260,
+      },
+      raw_samples_optional: [],
+      _profiler: {
+        sampling_hz: 30,
+        input_lag_ms_est: 34,
+      },
+    },
+    {
+      user_id: "u_001",
+      batch_id: "b_keep_2",
+      captured_at: "2025-10-06T11:27:00Z",
+      page_context: {
+        domain: "example.com",
+        route: "/home",
+        app_type: "web",
+      },
+      events_agg: {
+        click_count: 18,
+        misclick_rate: 0.05,
+        avg_click_interval_ms: 510,
+        avg_dwell_ms: 2500,
+        rage_clicks: 0,
+        zoom_events: 0,
+        scroll_speed_px_s: 220,
+      },
+      raw_samples_optional: [],
+      _profiler: {
+        sampling_hz: 30,
+        input_lag_ms_est: 29,
+      },
+    },
+    {
+      user_id: "u_001",
+      batch_id: "b_quarantine",
+      captured_at: "2025-10-06T11:29:00Z",
+      page_context: {
+        domain: "example.com",
+        route: "/search",
+        app_type: "web",
+      },
+      events_agg: {
+        click_count: 10,
+        misclick_rate: 0.42,
+        avg_click_interval_ms: 120,
+        avg_dwell_ms: 420,
+        rage_clicks: 4,
+        zoom_events: 0,
+        scroll_speed_px_s: 640,
+      },
+      raw_samples_optional: [],
+      _profiler: {
+        sampling_hz: 30,
+        input_lag_ms_est: 51,
+      },
+    },
+  ],
+};

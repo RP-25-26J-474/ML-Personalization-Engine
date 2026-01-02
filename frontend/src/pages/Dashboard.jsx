@@ -29,10 +29,11 @@ function Dashboard() {
   const usersWithProfiles = status?.data?.users_with_profiles ?? "--";
   const profileVersions = status?.data?.profile_versions_total ?? "--";
   const globalVersion = status?.models?.global_iforest_version ?? "--";
+  const userSeqVersion = status?.models?.user_seq_model_version ?? "--";
 
   return (
     <div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-primary/10 bg-base-200 p-4">
           <div className="text-xs uppercase tracking-wide text-base-content/60">
             Users With Profiles
@@ -58,6 +59,15 @@ function Dashboard() {
           <div className="mt-2 text-2xl font-semibold">{globalVersion}</div>
           <div className="text-xs text-base-content/60">
             Latest global model snapshot
+          </div>
+        </div>
+        <div className="rounded-xl border border-primary/10 bg-base-200 p-4">
+          <div className="text-xs uppercase tracking-wide text-base-content/60">
+            User Seq Model Version
+          </div>
+          <div className="mt-2 text-2xl font-semibold">{userSeqVersion}</div>
+          <div className="text-xs text-base-content/60">
+            Latest sequence autoencoder snapshot
           </div>
         </div>
       </div>
