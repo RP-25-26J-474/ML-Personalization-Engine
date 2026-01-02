@@ -3,7 +3,8 @@ import InputSection from "../components/sections/InputSection";
 import OutputSection from "../components/sections/OutputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
-import { postJson } from "../api/MLPEClient";
+import ProfileDiffHistory from "../components/sections/ProfileDiffHistory";
+import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 
 import {
@@ -19,6 +20,37 @@ export default function UserEngine() {
   const [outputText, setOutputText] = useState("");
   const [consoleText, setConsoleText] = useState("Ready.");
   const [isLoading, setIsLoading] = useState(false);
+  const [diffHistory, setDiffHistory] = useState([]);
+  const [historyUserId, setHistoryUserId] = useState("");
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const extractUserId = (payload) => {
+    if (!payload) return "";
+    if (payload.user_id) return payload.user_id;
+    if (Array.isArray(payload.batches) && payload.batches.length > 0) {
+      return payload.batches[0]?.user_id || "";
+    }
+    return "";
+  };
+
+  const fetchHistory = async (userId) => {
+    if (!userId) return;
+    setIsHistoryLoading(true);
+    try {
+      const response = await getJson(`/data/profile-diffs?user_id=${userId}`);
+      setDiffHistory(Array.isArray(response) ? response : []);
+      setHistoryUserId(userId);
+    } catch (error) {
+      setDiffHistory([]);
+      setConsoleText(
+        `History load failed: ${error.message}${
+          error.data ? ` | ${formatJson(error.data)}` : ""
+        }`
+      );
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const parsed = tryParseJson(inputText);
@@ -40,6 +72,10 @@ export default function UserEngine() {
           response?.quarantined ? "yes" : "no"
         }.`
       );
+      const userId = extractUserId(parsed.value);
+      if (userId) {
+        await fetchHistory(userId);
+      }
     } catch (error) {
       setOutputText("");
       setConsoleText(
@@ -67,7 +103,7 @@ export default function UserEngine() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full max-w-8xl mx-auto">
           <div className="grid h-full min-h-0 grid-cols-12 gap-3">
-            <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
+            <div className="col-span-12 xl:col-span-8 max-h-[calc(100vh-12rem)] flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
                 <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
                   <div className="flex items-center justify-between px-4 pt-4">
@@ -122,8 +158,30 @@ export default function UserEngine() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-4 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
-              <ChartSection />
+            <div className="col-span-12 xl:col-span-4 max-h-[calc(100vh-12rem)] bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
+              <ChartSection
+                title="Profile Diff History"
+                subtitle={
+                  isHistoryLoading
+                    ? "Loading changes..."
+                    : "Version-by-version knob changes"
+                }
+              >
+                <ProfileDiffHistory
+                  items={diffHistory}
+                  userId={historyUserId}
+                />
+              </ChartSection>
+              <div className="mt-3">
+                <button
+                  className="btn btn-xs btn-outline"
+                  disabled={isHistoryLoading || !historyUserId}
+                  onClick={() => fetchHistory(historyUserId)}
+                  type="button"
+                >
+                  Refresh history
+                </button>
+              </div>
             </div>
           </div>
         </div>
