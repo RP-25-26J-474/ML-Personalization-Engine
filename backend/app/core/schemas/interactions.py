@@ -42,3 +42,7 @@ class InteractionBatch(BaseModel):
     events_agg: EventsAgg
     raw_samples_optional: list[InteractionSample] = Field(default_factory=list)
     profiler: ProfilerMeta = Field(default_factory=ProfilerMeta, alias="_profiler")
+
+
+class InteractionBatchList(BaseModel):
+    batches: list[InteractionBatch] = Field(min_length=1)

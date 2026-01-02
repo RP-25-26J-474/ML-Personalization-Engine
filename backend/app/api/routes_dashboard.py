@@ -16,6 +16,7 @@ def status():
     return {
         "models": {
             "global_iforest_version": models_repo.global_iforest_version,
+            "user_seq_model_version": models_repo.user_seq_model_version,
             "user_model_versions": models_repo.user_model_versions,
         },
         "data": {
