@@ -218,7 +218,6 @@ export const CategoryEngineDefaultPayload = {
     vision: {
       vision_loss: 0.2,
       color_blindness: 0.1,
-      photophobia: 0.05,
     },
     motor: {
       delayed_reaction: 0.3,
