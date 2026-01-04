@@ -5,7 +5,6 @@ from typing import Optional
 class VisionImpairmentProbs(BaseModel):
     vision_loss: float = Field(ge=0, le=1)
     color_blindness: float = Field(ge=0, le=1)
-    photophobia: float = Field(ge=0, le=1)
 
 
 class MotorImpairmentProbs(BaseModel):
