@@ -10,7 +10,6 @@ class VisionImpairmentProbs(BaseModel):
 class MotorImpairmentProbs(BaseModel):
     delayed_reaction: float = Field(ge=0, le=1)
     inaccurate_click: float = Field(ge=0, le=1)
-    tremor: float = Field(ge=0, le=1)
 
 
 class ImpairmentProbs(BaseModel):

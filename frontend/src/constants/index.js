@@ -222,7 +222,6 @@ export const CategoryEngineDefaultPayload = {
     motor: {
       delayed_reaction: 0.3,
       inaccurate_click: 0.2,
-      tremor: 0.1,
     },
     literacy: 0.4,
   },

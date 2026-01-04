@@ -37,7 +37,6 @@ def flatten_impairment_probs(onb: OnboardingResult) -> dict[str, float]:
         "color_blindness": onb.impairment_probs.vision.color_blindness,
         "delayed_reaction": onb.impairment_probs.motor.delayed_reaction,
         "inaccurate_click": onb.impairment_probs.motor.inaccurate_click,
-        "tremor": onb.impairment_probs.motor.tremor,
         "literacy": onb.impairment_probs.literacy,
     }
 
