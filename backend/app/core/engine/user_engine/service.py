@@ -185,8 +185,6 @@ class UserEngineService:
             captured_at=last.captured_at,
             page_context=last.page_context,
             events_agg=events_agg,
-            raw_samples_optional=[],
-            profiler=last.profiler,
         )
 
     def train_seq_model(

@@ -29,8 +29,6 @@ class DeviceContext(BaseModel):
 class OnboardingMetrics(BaseModel):
     avg_reaction_ms: Optional[float] = None
     hit_rate: Optional[float] = None
-    color_confusion_rate: Optional[float] = None
-    reading_score: Optional[float] = None
 
 
 class OnboardingResult(BaseModel):

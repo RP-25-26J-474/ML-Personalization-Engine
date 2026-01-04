@@ -55,11 +55,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         zoom_events: 1,
         scroll_speed_px_s: 260,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 34,
-      },
     },
     {
       user_id: "u_001",
@@ -78,11 +73,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         rage_clicks: 4,
         zoom_events: 0,
         scroll_speed_px_s: 640,
-      },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 51,
       },
     },
     {
@@ -103,11 +93,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         zoom_events: 0,
         scroll_speed_px_s: 880,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 69,
-      },
     },
     {
       user_id: "u_001",
@@ -126,13 +111,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         rage_clicks: 0,
         zoom_events: 0,
         scroll_speed_px_s: 220,
-      },
-      raw_samples_optional: [
-        { t: 320, type: "click", x: 280, y: 520, target_w: 64, target_h: 24 },
-      ],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 29,
       },
     },
     {
@@ -153,11 +131,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         zoom_events: 0,
         scroll_speed_px_s: 560,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 48,
-      },
     },
     {
       user_id: "u_001",
@@ -177,11 +150,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         zoom_events: 1,
         scroll_speed_px_s: 920,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 74,
-      },
     },
     {
       user_id: "u_001",
@@ -200,11 +168,6 @@ export const TemporaryUserDetectorDefaultPayload = {
         rage_clicks: 1,
         zoom_events: 1,
         scroll_speed_px_s: 300,
-      },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 36,
       },
     },
   ],
@@ -228,8 +191,6 @@ export const CategoryEngineDefaultPayload = {
   onboarding_metrics: {
     avg_reaction_ms: 720,
     hit_rate: 0.88,
-    color_confusion_rate: 0.12,
-    reading_score: 0.6,
   },
   device_context: {
     os: "Windows",
@@ -258,13 +219,6 @@ export const UserEngineDefaultPayload = {
     zoom_events: 2,
     scroll_speed_px_s: 260,
   },
-  raw_samples_optional: [
-    { t: 120, type: "click", x: 120, y: 440, target_w: 42, target_h: 18 },
-  ],
-  _profiler: {
-    sampling_hz: 30,
-    input_lag_ms_est: 34,
-  },
 };
 
 export const UserEngineBatchDefaultPayload = {
@@ -287,11 +241,6 @@ export const UserEngineBatchDefaultPayload = {
         zoom_events: 1,
         scroll_speed_px_s: 260,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 34,
-      },
     },
     {
       user_id: "u_001",
@@ -311,11 +260,6 @@ export const UserEngineBatchDefaultPayload = {
         zoom_events: 0,
         scroll_speed_px_s: 220,
       },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 29,
-      },
     },
     {
       user_id: "u_001",
@@ -334,11 +278,6 @@ export const UserEngineBatchDefaultPayload = {
         rage_clicks: 4,
         zoom_events: 0,
         scroll_speed_px_s: 640,
-      },
-      raw_samples_optional: [],
-      _profiler: {
-        sampling_hz: 30,
-        input_lag_ms_est: 51,
       },
     },
   ],
