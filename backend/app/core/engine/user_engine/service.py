@@ -9,6 +9,7 @@ from app.core.schemas.trace import DecisionTrace, TraceAction
 from app.core.storage.artifacts.artifact_store import ArtifactStore
 from app.core.utils.ids import new_id
 from app.core.engine.user_engine import seq_autoencoder
+from app.core.engine.user_engine import rules
 
 
 @dataclass
@@ -112,28 +113,18 @@ class UserEngineService:
 
     def _suggest_heuristic(self, batch: InteractionBatch) -> UserResult:
         e = batch.events_agg
-
-        suggestion: Dict[str, Any] = {}
-
-        # If many misclicks -> increase target size / spacing slightly
-        if e.misclick_rate >= 0.15 or e.rage_clicks >= 2:
-            suggestion["target_size"] = 32
-            suggestion["element_spacing_x"] = 8
-            suggestion["element_spacing_y"] = 4
-
-        # If zoom events -> bigger font
-        if e.zoom_events >= 2:
-            suggestion["font_size"] = 14
-
-        # If long dwell and high click interval -> maybe tooltip assist
-        if e.avg_dwell_ms >= 3000 and e.avg_click_interval_ms >= 900:
-            suggestion["tooltip_assist"] = True
-
-        # Confidence increases with signal
-        signal = min(
-            1.0, (e.misclick_rate + 0.1 * e.zoom_events + 0.05 * e.rage_clicks)
-        )
-        confidence = 0.70 + 0.20 * signal
+        agg = {
+            "click_count": float(e.click_count),
+            "misclick_rate": float(e.misclick_rate),
+            "avg_click_interval_ms": float(e.avg_click_interval_ms),
+            "avg_dwell_ms": float(e.avg_dwell_ms),
+            "rage_clicks": float(e.rage_clicks),
+            "zoom_events": float(e.zoom_events),
+            "scroll_speed_px_s": float(e.scroll_speed_px_s),
+        }
+        signals = rules.compute_signals(agg)
+        suggestion = rules.suggest_from_agg(agg)
+        confidence = rules.compute_confidence(signals)
 
         trace = DecisionTrace(
             trace_id=new_id("tr"),
@@ -143,7 +134,13 @@ class UserEngineService:
                 TraceAction(type="analyze_events_agg", details={"events_agg": e.model_dump()}),
                 TraceAction(type="produce_suggestions", details={"suggestion": suggestion}),
             ],
-            metrics={"confidence": float(min(1.0, confidence)), "signal": float(signal)},
+            metrics={
+                "confidence": float(min(1.0, confidence)),
+                "error_signal": signals["error_signal"],
+                "zoom_signal": signals["zoom_signal"],
+                "hesitation_signal": signals["hesitation_signal"],
+                "signal": signals["combined_signal"],
+            },
             warnings=[],
         )
 

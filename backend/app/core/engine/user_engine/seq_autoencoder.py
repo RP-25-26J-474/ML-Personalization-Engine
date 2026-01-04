@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 
 from app.core.schemas.interactions import InteractionBatch
 from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.engine.user_engine import rules
 import torch
 from torch import nn
 
@@ -119,20 +120,7 @@ def _sequence_aggregate(features: np.ndarray) -> dict[str, float]:
 
 
 def _template_from_agg(agg: dict[str, float]) -> dict[str, Any]:
-    suggestion: dict[str, Any] = {}
-
-    if agg["misclick_rate"] >= 0.15 or agg["rage_clicks"] >= 2:
-        suggestion["target_size"] = 32
-        suggestion["element_spacing_x"] = 8
-        suggestion["element_spacing_y"] = 4
-
-    if agg["zoom_events"] >= 2:
-        suggestion["font_size"] = 14
-
-    if agg["avg_dwell_ms"] >= 3000 and agg["avg_click_interval_ms"] >= 900:
-        suggestion["tooltip_assist"] = True
-
-    return suggestion
+    return rules.suggest_from_agg(agg)
 
 
 def train_seq_model(
