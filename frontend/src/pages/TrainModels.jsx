@@ -3,6 +3,7 @@ import ConsoleSection from "../components/sections/ConsoleSection";
 import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
 import { getJson, postForm, postJson } from "../api/MLPEClient";
 import IsolationForestTrees from "../components/charts/temp-detector/IsolationForestTrees";
+import Modal from "../components/modals/Modal";
 
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
@@ -50,6 +51,36 @@ function TrainModels() {
     sequences: 0,
     lastRun: "--",
   });
+
+  const categoryTrainingSample = {
+    features: {
+      vision_loss: 0.2,
+      color_blindness: 0.1,
+      delayed_reaction: 0.3,
+      inaccurate_click: 0.2,
+      literacy: 0.4,
+    },
+    profile: {
+      font_size: 14,
+      line_height: 1.73,
+      contrast_mode: "normal",
+      primary_color: "#1a73e8",
+      primary_color_content: "#ffffff",
+      secondary_color: "#1a73e8",
+      secondary_color_content: "#ffffff",
+      accent_color: "#e37400",
+      accent_color_content: "#ffffff",
+      theme: "light",
+      element_spacing_x: 6,
+      element_spacing_y: 3,
+      element_padding_x: 8,
+      element_padding_y: 8,
+      reduced_motion: true,
+      target_size: 29,
+      tooltip_assist: true,
+      layout_simplification: true,
+    },
+  };
 
   const canTrain =
     modelType === "category" ||
@@ -721,17 +752,34 @@ function TrainModels() {
                           ? "Ready for training"
                           : "Training not available"}
                       </div>
-                      <button
-                        className="btn btn-primary shadow"
-                        onClick={handleTrain}
-                        disabled={isTraining}
-                      >
-                        {isTraining ? (
-                          <span className="loading loading-spinner loading-sm"></span>
-                        ) : (
-                          "Train Model"
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {modelType === "category" ? (
+                          <Modal
+                            title="Category Training Data Structure"
+                            triggerLabel="Show Training Data Structure"
+                            triggerClassName="btn btn-ghost btn-sm"
+                          >
+                            <div className="text-xs text-base-content/60">
+                              One training row combines the impairment features with
+                              the expected profile output.
+                            </div>
+                            <pre className="mt-3 p-3 rounded-lg bg-base-200 text-xs font-mono whitespace-pre-wrap">
+                              {JSON.stringify(categoryTrainingSample, null, 2)}
+                            </pre>
+                          </Modal>
+                        ) : null}
+                        <button
+                          className="btn btn-primary shadow"
+                          onClick={handleTrain}
+                          disabled={isTraining}
+                        >
+                          {isTraining ? (
+                            <span className="loading loading-spinner loading-sm"></span>
+                          ) : (
+                            "Train Model"
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
