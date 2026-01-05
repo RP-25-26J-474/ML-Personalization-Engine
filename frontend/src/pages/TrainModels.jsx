@@ -726,7 +726,11 @@ function TrainModels() {
                         onClick={handleTrain}
                         disabled={isTraining}
                       >
-                        {isTraining ? "Training..." : "Train Model"}
+                        {isTraining ? (
+                          <span className="loading loading-spinner loading-sm"></span>
+                        ) : (
+                          "Train Model"
+                        )}
                       </button>
                     </div>
                   </div>

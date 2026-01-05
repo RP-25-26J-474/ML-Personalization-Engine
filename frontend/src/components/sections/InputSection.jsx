@@ -16,7 +16,7 @@ export default function InputSection({
       <form className="flex-1">
         <div className="relative h-full">
           <textarea
-            className="textarea w-full h-full p-3 border border-primary/30 rounded bg-base-100 text-slate-100 resize-none font-mono"
+            className="textarea w-full h-full p-3 border border-primary/30 rounded bg-base-100 resize-none font-mono"
             placeholder={placeholder}
             value={value || ""}
             onChange={(event) => onChange?.(event.target.value)}
@@ -29,7 +29,11 @@ export default function InputSection({
             disabled={isLoading}
             aria-label={submitLabel}
           >
-            <FaAngleRight className="w-6 h-6" />
+            {isLoading ? (
+              <span className="loading loading-spinner loading-sm"></span>
+            ) : (
+              <FaAngleRight className="w-6 h-6" />
+            )}
           </button>
         </div>
       </form>

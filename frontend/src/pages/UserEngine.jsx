@@ -6,6 +6,7 @@ import ChartSection from "../components/sections/ChartSection";
 import ProfileDiffHistory from "../components/sections/ProfileDiffHistory";
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
+import { appendConsole, demoDelay } from "../utils/demo";
 
 import {
   UserEngineDefaultPayload,
@@ -42,7 +43,8 @@ export default function UserEngine() {
       setHistoryUserId(userId);
     } catch (error) {
       setDiffHistory([]);
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `History load failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
         }`
@@ -62,23 +64,31 @@ export default function UserEngine() {
     setIsLoading(true);
     const endpoint =
       mode === "batch" ? "/user/update-profile-batch" : "/user/update-profile";
-    setConsoleText(`Updating user profile via ${endpoint}...`);
+    setConsoleText("");
+    appendConsole(setConsoleText, "Validating interaction payload...");
+    await demoDelay();
+    appendConsole(setConsoleText, `Updating user profile via ${endpoint}...`);
+    await demoDelay();
 
     try {
       const response = await postJson(endpoint, parsed.value);
       setOutputText(formatJson(response));
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `Update complete. Quarantined: ${
           response?.quarantined ? "yes" : "no"
         }.`
       );
       const userId = extractUserId(parsed.value);
       if (userId) {
+        appendConsole(setConsoleText, "Loading profile diff history...");
+        await demoDelay();
         await fetchHistory(userId);
       }
     } catch (error) {
       setOutputText("");
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `Request failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
         }`
@@ -92,9 +102,9 @@ export default function UserEngine() {
     if (!outputText) return;
     try {
       await navigator.clipboard.writeText(outputText);
-      setConsoleText("Output copied to clipboard.");
+      appendConsole(setConsoleText, "Output copied to clipboard.");
     } catch (error) {
-      setConsoleText(`Copy failed: ${error.message}`);
+      appendConsole(setConsoleText, `Copy failed: ${error.message}`);
     }
   };
 
