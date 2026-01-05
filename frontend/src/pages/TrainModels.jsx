@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
-import { getJson, postJson } from "../api/MLPEClient";
+import { getJson, postForm, postJson } from "../api/MLPEClient";
 import IsolationForestTrees from "../components/charts/temp-detector/IsolationForestTrees";
 
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
   const [nSynth, setNSynth] = useState(400);
+  const [categoryTrainMode, setCategoryTrainMode] = useState("synth");
+  const [categoryCsvFile, setCategoryCsvFile] = useState(null);
   const [tempUserId, setTempUserId] = useState("");
   const [tempOutcomes, setTempOutcomes] = useState("keep");
   const [tempMinSamples, setTempMinSamples] = useState(10);
@@ -213,7 +215,11 @@ function TrainModels() {
 
     setIsTraining(true);
     if (modelType === "category") {
-      setConsoleText("Training Category Engine (synthetic data)...");
+      setConsoleText(
+        categoryTrainMode === "csv"
+          ? "Training Category Engine (CSV upload)..."
+          : "Training Category Engine (synthetic data)..."
+      );
       setMetrics((prev) => ({ ...prev, status: "Training..." }));
     } else if (modelType === "user") {
       setConsoleText("Training User Engine (sequence autoencoder)...");
@@ -225,7 +231,19 @@ function TrainModels() {
 
     try {
       if (modelType === "category") {
-        const response = await postJson("/category/train", { n_synth: nSynth });
+        let response = null;
+        if (categoryTrainMode === "csv") {
+          if (!categoryCsvFile) {
+            setConsoleText("Select a CSV file before training.");
+            setMetrics((prev) => ({ ...prev, status: "Failed" }));
+            return;
+          }
+          const formData = new FormData();
+          formData.append("file", categoryCsvFile);
+          response = await postForm("/category/train-csv", formData);
+        } else {
+          response = await postJson("/category/train", { n_synth: nSynth });
+        }
         const vectorSpace = await getJson("/category/vector-space-3d");
         setPoints(vectorSpace?.points || []);
         setMetrics({
@@ -380,23 +398,68 @@ function TrainModels() {
                       {modelType === "category" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3">
                           <div className="text-xs text-base-content/60">
-                            Synthetic Samples
+                            Training Source
                           </div>
-                          <input
-                            type="number"
-                            min={50}
-                            max={2000}
-                            step={50}
-                            value={nSynth}
+                          <select
+                            className="select select-bordered w-full mt-2"
+                            value={categoryTrainMode}
                             onChange={(event) =>
-                              setNSynth(Number(event.target.value))
+                              setCategoryTrainMode(event.target.value)
                             }
-                            className="input input-bordered w-full mt-2"
-                          />
-                          <div className="mt-2 text-[11px] text-base-content/50">
-                            Uses synthetic data for now. File upload coming
-                            next.
-                          </div>
+                          >
+                            <option value="synth">Synthetic data</option>
+                            <option value="csv">CSV upload</option>
+                          </select>
+                          {categoryTrainMode === "synth" ? (
+                            <>
+                              <div className="text-xs text-base-content/60 mt-3">
+                                Synthetic Samples
+                              </div>
+                              <input
+                                type="number"
+                                min={50}
+                                max={2000}
+                                step={50}
+                                value={nSynth}
+                                onChange={(event) =>
+                                  setNSynth(Number(event.target.value))
+                                }
+                                className="input input-bordered w-full mt-2"
+                              />
+                              <div className="mt-2 text-[11px] text-base-content/50">
+                                Uses synthetic data for now. CSV upload is also
+                                supported.
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs text-base-content/60 mt-3">
+                                CSV File
+                              </div>
+                              <input
+                                type="file"
+                                accept=".csv,text/csv"
+                                onChange={(event) =>
+                                  setCategoryCsvFile(
+                                    event.target.files?.[0] || null
+                                  )
+                                }
+                                className="file-input file-input-bordered w-full mt-2"
+                              />
+                              <div className="mt-2 text-[11px] text-base-content/50">
+                                Required columns: vision_loss, color_blindness,
+                                delayed_reaction, inaccurate_click, literacy,
+                                font_size, line_height, contrast_mode,
+                                primary_color, primary_color_content,
+                                secondary_color, secondary_color_content,
+                                accent_color, accent_color_content, theme,
+                                element_spacing_x, element_spacing_y,
+                                element_padding_x, element_padding_y,
+                                reduced_motion, target_size, tooltip_assist,
+                                layout_simplification.
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : null}
 
