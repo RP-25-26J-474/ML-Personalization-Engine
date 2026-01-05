@@ -224,8 +224,8 @@ function TemporaryUserDetector() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
-              <NormalTabs tabs={normalTabsContent} className="h-full" />
+            <div className="col-span-12 xl:col-span-8 max-h-[90vh] overflow-auto bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
+              <NormalTabs tabs={normalTabsContent} className="h-full" contentClassName="max-h-[60vh] overflow-auto" />
             </div>
           </div>
         </div>
