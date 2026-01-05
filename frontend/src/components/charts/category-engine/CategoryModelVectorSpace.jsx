@@ -54,12 +54,15 @@ export default function CategoryModelVectorSpace({ points = [] }) {
     controls.dampingFactor = 0.08;
     controls.rotateSpeed = 0.7;
 
+    const world = new THREE.Group();
+    scene.add(world);
+
     const grid = new THREE.GridHelper(1.5, 10, 0x2a3342, 0x1f2735);
     grid.position.y = -0.45;
-    scene.add(grid);
+    world.add(grid);
 
     const axes = new THREE.AxesHelper(0.6);
-    scene.add(axes);
+    world.add(axes);
 
     const positions = new Float32Array(normalized.flatMap((p) => p));
     const geometry = new THREE.BufferGeometry();
@@ -73,7 +76,7 @@ export default function CategoryModelVectorSpace({ points = [] }) {
     });
 
     const cloud = new THREE.Points(geometry, material);
-    scene.add(cloud);
+    world.add(cloud);
 
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points.threshold = 0.03;
@@ -82,7 +85,7 @@ export default function CategoryModelVectorSpace({ points = [] }) {
     let animationFrame = 0;
     const animate = () => {
       animationFrame = requestAnimationFrame(animate);
-      cloud.rotation.y += 0.001;
+      world.rotation.y += 0.001;
       controls.update();
       renderer.render(scene, camera);
     };
