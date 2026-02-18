@@ -1,0 +1,954 @@
+{
+  "batches": [
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_000",
+      "captured_at": "2025-10-06T11:25:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 1,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 210
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_001",
+      "captured_at": "2025-10-06T11:26:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 218
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_002",
+      "captured_at": "2025-10-06T11:27:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 226
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_003",
+      "captured_at": "2025-10-06T11:28:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 234
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_004",
+      "captured_at": "2025-10-06T11:29:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 242
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_005",
+      "captured_at": "2025-10-06T11:30:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 2150,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 250
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_006",
+      "captured_at": "2025-10-06T11:31:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 2240,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 258
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_007",
+      "captured_at": "2025-10-06T11:32:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 2330,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 266
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_008",
+      "captured_at": "2025-10-06T11:33:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 2420,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 274
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_009",
+      "captured_at": "2025-10-06T11:34:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 282
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_010",
+      "captured_at": "2025-10-06T11:35:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 210
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_011",
+      "captured_at": "2025-10-06T11:36:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 218
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_012",
+      "captured_at": "2025-10-06T11:37:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 226
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_013",
+      "captured_at": "2025-10-06T11:38:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 234
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_014",
+      "captured_at": "2025-10-06T11:39:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 2150,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 242
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_015",
+      "captured_at": "2025-10-06T11:40:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 2240,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 250
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_016",
+      "captured_at": "2025-10-06T11:41:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 2330,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 258
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_017",
+      "captured_at": "2025-10-06T11:42:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 2420,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 266
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_018",
+      "captured_at": "2025-10-06T11:43:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 274
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_019",
+      "captured_at": "2025-10-06T11:44:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 282
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_020",
+      "captured_at": "2025-10-06T11:45:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 1,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 210
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_021",
+      "captured_at": "2025-10-06T11:46:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 218
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_022",
+      "captured_at": "2025-10-06T11:47:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 226
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_023",
+      "captured_at": "2025-10-06T11:48:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 2150,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 234
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_024",
+      "captured_at": "2025-10-06T11:49:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 2240,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 242
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_025",
+      "captured_at": "2025-10-06T11:50:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 2330,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 250
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_026",
+      "captured_at": "2025-10-06T11:51:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 2420,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 258
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_027",
+      "captured_at": "2025-10-06T11:52:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 266
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_028",
+      "captured_at": "2025-10-06T11:53:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 274
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_029",
+      "captured_at": "2025-10-06T11:54:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 282
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_030",
+      "captured_at": "2025-10-06T11:55:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 210
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_031",
+      "captured_at": "2025-10-06T11:56:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 218
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_032",
+      "captured_at": "2025-10-06T11:57:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 2150,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 226
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_033",
+      "captured_at": "2025-10-06T11:58:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 2240,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 234
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_034",
+      "captured_at": "2025-10-06T11:59:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 2330,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 242
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_035",
+      "captured_at": "2025-10-06T12:00:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 2420,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 250
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_036",
+      "captured_at": "2025-10-06T12:01:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 258
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_037",
+      "captured_at": "2025-10-06T12:02:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 266
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_038",
+      "captured_at": "2025-10-06T12:03:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 274
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_039",
+      "captured_at": "2025-10-06T12:04:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 282
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_040",
+      "captured_at": "2025-10-06T12:05:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 1,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 210
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_041",
+      "captured_at": "2025-10-06T12:06:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 2150,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 218
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_042",
+      "captured_at": "2025-10-06T12:07:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 20,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 2240,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 226
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_043",
+      "captured_at": "2025-10-06T12:08:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 21,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 440,
+        "avg_dwell_ms": 2330,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 234
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_044",
+      "captured_at": "2025-10-06T12:09:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 22,
+        "misclick_rate": 0.056,
+        "avg_click_interval_ms": 460,
+        "avg_dwell_ms": 2420,
+        "rage_clicks": 0,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 242
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_045",
+      "captured_at": "2025-10-06T12:10:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 23,
+        "misclick_rate": 0.064,
+        "avg_click_interval_ms": 480,
+        "avg_dwell_ms": 1700,
+        "rage_clicks": 1,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 250
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_046",
+      "captured_at": "2025-10-06T12:11:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/search",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 24,
+        "misclick_rate": 0.072,
+        "avg_click_interval_ms": 500,
+        "avg_dwell_ms": 1790,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 258
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_047",
+      "captured_at": "2025-10-06T12:12:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/checkout",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 25,
+        "misclick_rate": 0.08,
+        "avg_click_interval_ms": 520,
+        "avg_dwell_ms": 1880,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 266
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_048",
+      "captured_at": "2025-10-06T12:13:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/home",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 18,
+        "misclick_rate": 0.04,
+        "avg_click_interval_ms": 540,
+        "avg_dwell_ms": 1970,
+        "rage_clicks": 1,
+        "zoom_events": 1,
+        "scroll_speed_px_s": 274
+      }
+    },
+    {
+      "user_id": "u_001",
+      "batch_id": "b_keep_049",
+      "captured_at": "2025-10-06T12:14:00Z",
+      "page_context": {
+        "domain": "example.com",
+        "route": "/account",
+        "app_type": "web"
+      },
+      "events_agg": {
+        "click_count": 19,
+        "misclick_rate": 0.048,
+        "avg_click_interval_ms": 420,
+        "avg_dwell_ms": 2060,
+        "rage_clicks": 0,
+        "zoom_events": 0,
+        "scroll_speed_px_s": 282
+      }
+    }
+  ]
+}

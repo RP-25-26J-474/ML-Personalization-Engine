@@ -104,6 +104,9 @@ class CategoryEngineService:
 
     def train_from_synth(self, n: int = 400) -> None:
         Xdicts, profiles = generate_synth_survey(n=n)
+        self.train_from_data(Xdicts, profiles)
+
+    def train_from_data(self, Xdicts: list[dict[str, float]], profiles: list[dict]) -> None:
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
         self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
         self._save_best()

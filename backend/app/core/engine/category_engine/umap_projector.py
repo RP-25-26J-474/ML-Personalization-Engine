@@ -18,11 +18,16 @@ def fit_umap(
     random_state: int = 42,
     n_jobs: int | None = None,
 ):
+    n_samples = int(X.shape[0])
+    if n_samples <= n_components:
+        Z = np.zeros((n_samples, n_components), dtype=float)
+        return None, Z
+    safe_neighbors = min(n_neighbors, max(2, n_samples - 1))
     if random_state is not None and n_jobs is None:
         n_jobs = 1
     reducer = umap.UMAP(
         n_components=n_components,
-        n_neighbors=n_neighbors,
+        n_neighbors=safe_neighbors,
         min_dist=min_dist,
         metric="cosine",
         random_state=random_state,
