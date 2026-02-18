@@ -9,6 +9,7 @@ from app.core.schemas.onboarding import OnboardingResult
 from app.core.schemas.profile import ProfileKnobs
 from app.core.engine.category_engine.umap_projector import fit_umap_2d, fit_umap_3d
 from app.core.engine.category_engine.model_knn import FEATURE_ORDER
+from app.core.utils.time import now_iso
 
 router = APIRouter()
 PROFILE_FIELDS = list(ProfileKnobs.model_fields.keys())
@@ -39,10 +40,16 @@ class TrainCategoryRequest(BaseModel):
 @router.post("/train")
 def train_category(req: TrainCategoryRequest):
     container.category_engine.train_from_synth(n=req.n_synth)
+    trained_at = now_iso()
+    version = f"v{trained_at}"
+    container.models_repo.category_model_version = version
+    container.models_repo.category_last_n_samples = req.n_synth
+    container.models_repo.category_last_trained_at = trained_at
     return {
         "status": "trained",
         "n_samples": req.n_synth,
         "artifact_key": "category_engine/category_best",
+        "version": version,
     }
 
 
@@ -116,11 +123,17 @@ async def train_category_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="CSV has no data rows.")
 
     container.category_engine.train_from_data(Xdicts, profiles)
+    trained_at = now_iso()
+    version = f"v{trained_at}"
+    container.models_repo.category_model_version = version
+    container.models_repo.category_last_n_samples = len(Xdicts)
+    container.models_repo.category_last_trained_at = trained_at
     return {
         "status": "trained",
         "n_samples": len(Xdicts),
         "artifact_key": "category_engine/category_best",
         "source": "csv",
+        "version": version,
     }
 
 class VectorSpaceResponse(BaseModel):
