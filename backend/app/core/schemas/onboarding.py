@@ -5,13 +5,11 @@ from typing import Optional
 class VisionImpairmentProbs(BaseModel):
     vision_loss: float = Field(ge=0, le=1)
     color_blindness: float = Field(ge=0, le=1)
-    photophobia: float = Field(ge=0, le=1)
 
 
 class MotorImpairmentProbs(BaseModel):
     delayed_reaction: float = Field(ge=0, le=1)
     inaccurate_click: float = Field(ge=0, le=1)
-    tremor: float = Field(ge=0, le=1)
 
 
 class ImpairmentProbs(BaseModel):
@@ -31,8 +29,6 @@ class DeviceContext(BaseModel):
 class OnboardingMetrics(BaseModel):
     avg_reaction_ms: Optional[float] = None
     hit_rate: Optional[float] = None
-    color_confusion_rate: Optional[float] = None
-    reading_score: Optional[float] = None
 
 
 class OnboardingResult(BaseModel):

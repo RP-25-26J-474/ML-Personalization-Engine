@@ -45,7 +45,7 @@ class TempUserDetectorService:
         self.artifact_store = artifact_store or ArtifactStore()
         self.model = model or self._load_best()
         self.baseline_repo = baseline_repo or TempBaselineRepo()
-        self.quarantine_threshold = 0.50  # demo threshold (tune later)
+        self.quarantine_threshold = 0.55  # demo threshold (tune later)
         self.reject_threshold = 0.75  # hard reject for high anomaly
         self.feature_order = list(FEATURE_ORDER)
 
@@ -88,9 +88,10 @@ class TempUserDetectorService:
         ]
 
         heuristic_components = self._heuristic_components(batch)
+        heuristic_anomaly = self._heuristic_anomaly_from_components(heuristic_components)
         if self.model is None:
             # Heuristic anomaly proxy for demo:
-            anomaly = self._heuristic_anomaly_from_components(heuristic_components)
+            anomaly = heuristic_anomaly
             actions.append(
                 TraceAction(
                     type="score_heuristic",
@@ -101,12 +102,16 @@ class TempUserDetectorService:
                 )
             )
         else:
-            anomaly = score_anomaly(self.model, x)
+            iforest_anomaly = score_anomaly(self.model, x)
+            # Use the more conservative signal to avoid hiding extreme cases in demo data.
+            anomaly = max(iforest_anomaly, heuristic_anomaly)
             actions.append(
                 TraceAction(
                     type="score_iforest",
                     details={
                         "anomaly_score": anomaly,
+                        "iforest_anomaly_score": iforest_anomaly,
+                        "heuristic_anomaly_score": heuristic_anomaly,
                         "quarantine_threshold": self.quarantine_threshold,
                         "reject_threshold": self.reject_threshold,
                         "heuristic_components": heuristic_components,

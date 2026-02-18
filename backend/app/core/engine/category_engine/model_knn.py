@@ -4,21 +4,21 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
 FEATURE_ORDER = [
-    "vision_loss", "color_blindness", "photophobia",
-    "delayed_reaction", "inaccurate_click", "tremor",
+    "vision_loss", "color_blindness",
+    "delayed_reaction", "inaccurate_click",
     "literacy"
 ]
 
 @dataclass
 class KNNArtifacts:
     nn: NearestNeighbors
-    X: np.ndarray                 # shape (n_samples, 7)
+    X: np.ndarray                 # shape (n_samples, 5)
     profiles: list[dict]          # length n_samples, knob dicts
     feature_order: list[str] = None
 
 
 def build_query_vector(impairment_probs: dict) -> np.ndarray:
-    # impairment_probs is flattened dict with 7 keys
+    # impairment_probs is flattened dict with 5 keys
     return np.array([float(impairment_probs[k]) for k in FEATURE_ORDER], dtype=float)
 
 

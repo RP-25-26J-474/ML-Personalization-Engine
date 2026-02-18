@@ -2,9 +2,11 @@ const defaultBaseUrl =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 async function request(path, options = {}) {
+  const defaultHeaders =
+    options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
   const response = await fetch(`${defaultBaseUrl}${path}`, {
     headers: {
-      "Content-Type": "application/json",
+      ...defaultHeaders,
       ...(options.headers || {}),
     },
     ...options,
@@ -43,4 +45,12 @@ export function postJson(path, body) {
 
 export function getJson(path) {
   return request(path, { method: "GET" });
+}
+
+export function postForm(path, formData) {
+  return request(path, {
+    method: "POST",
+    headers: {},
+    body: formData,
+  });
 }

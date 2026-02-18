@@ -7,3 +7,4 @@ numpy==2.2.1
 scikit-learn==1.6.0
 joblib==1.4.2
 umap-learn==0.5.5
+torch==2.7.1

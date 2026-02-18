@@ -21,6 +21,7 @@ from app.core.engine.merge.diff import diff_profiles
 from app.core.storage.repos.profiles_repo import ProfilesRepo
 from app.core.storage.repos.traces_repo import TracesRepo
 from app.core.storage.repos.quarantine_repo import QuarantineRepo, QuarantineRow
+from app.core.storage.repos.temp_batches_repo import TempBatchesRepo, TempBatchRecord
 from app.core.storage.repos.models_repo import ModelsRepo
 
 
@@ -34,6 +35,17 @@ class OrchestratorResult:
     quality: dict | None = None
 
 
+@dataclass
+class OrchestratorBatchResult:
+    profile: PersonalizationProfile | None
+    diff: ProfileDiff | None
+    traces: TraceBundle
+    quarantined: bool
+    kept_batches: list[str]
+    quarantined_batches: list[dict]
+    rejected_batches: list[dict]
+
+
 class Orchestrator:
     def __init__(
         self,
@@ -44,6 +56,7 @@ class Orchestrator:
         traces_repo: TracesRepo,
         quarantine_repo: QuarantineRepo,
         models_repo: ModelsRepo,
+        temp_batches_repo: TempBatchesRepo,
     ):
         self.temp_detector = temp_detector
         self.category_engine = category_engine
@@ -53,6 +66,7 @@ class Orchestrator:
         self.traces_repo = traces_repo
         self.quarantine_repo = quarantine_repo
         self.models_repo = models_repo
+        self.temp_batches_repo = temp_batches_repo
 
     # --------- Category (new user) ----------
     def handle_onboarding(self, onboarding: OnboardingResult) -> OrchestratorResult:
@@ -95,6 +109,22 @@ class Orchestrator:
         # 1) Filter
         filt = self.temp_detector.score_batch(batch)
         traces.add(filt.trace)
+
+        self.temp_batches_repo.add(
+            TempBatchRecord(
+                user_id=batch.user_id,
+                batch_id=batch.batch_id,
+                captured_at=batch.captured_at,
+                outcome=filt.outcome,
+                anomaly_score=filt.anomaly_score,
+                similarity_score=filt.similarity_score,
+                heuristic_components=filt.heuristic_components,
+                features=filt.features,
+                payload=batch.model_dump(),
+            )
+        )
+        if filt.outcome == "keep":
+            self.temp_detector.update_baseline(batch.user_id, filt.features)
 
         if filt.is_quarantined:
             self.quarantine_repo.add(
@@ -168,3 +198,123 @@ class Orchestrator:
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
         return OrchestratorResult(profile=profile, diff=d, traces=traces)
+
+
+    def handle_interactions_many(self, batches: list[InteractionBatch]) -> OrchestratorBatchResult:
+        traces = TraceBundle()
+
+        kept: list[InteractionBatch] = []
+        quarantined_batches: list[dict] = []
+        rejected_batches: list[dict] = []
+
+        for batch in batches:
+            filt = self.temp_detector.score_batch(batch)
+            traces.add(filt.trace)
+
+            self.temp_batches_repo.add(
+                TempBatchRecord(
+                    user_id=batch.user_id,
+                    batch_id=batch.batch_id,
+                    captured_at=batch.captured_at,
+                    outcome=filt.outcome,
+                    anomaly_score=filt.anomaly_score,
+                    similarity_score=filt.similarity_score,
+                    heuristic_components=filt.heuristic_components,
+                    features=filt.features,
+                    payload=batch.model_dump(),
+                )
+            )
+            if filt.outcome == "keep":
+                self.temp_detector.update_baseline(batch.user_id, filt.features)
+
+            if filt.is_quarantined:
+                self.quarantine_repo.add(
+                    QuarantineRow(
+                        user_id=batch.user_id,
+                        batch_id=batch.batch_id,
+                        reason=filt.reason or "unknown",
+                        anomaly_score=filt.anomaly_score,
+                        payload=batch.model_dump(),
+                    )
+                )
+                row = {
+                    "batch_id": batch.batch_id,
+                    "outcome": filt.outcome,
+                    "anomaly_score": filt.anomaly_score,
+                    "reason": filt.reason,
+                }
+                if filt.is_rejected:
+                    rejected_batches.append(row)
+                else:
+                    quarantined_batches.append(row)
+            else:
+                kept.append(batch)
+
+        if not kept:
+            self.traces_repo.save_many(batches[0].user_id, traces.traces)
+            return OrchestratorBatchResult(
+                profile=None,
+                diff=None,
+                traces=traces,
+                quarantined=True,
+                kept_batches=[],
+                quarantined_batches=quarantined_batches,
+                rejected_batches=rejected_batches,
+            )
+
+        user_id = kept[0].user_id
+        prev = self.profiles_repo.get_latest(user_id)
+        if prev is None:
+            category_base = {
+                "font_size": 12,
+                "line_height": 1.6,
+                "contrast_mode": "high",
+                "primary_color": "#1a73e8",
+                "primary_color_content": "#ffffff",
+                "secondary_color": "#1a73e8",
+                "secondary_color_content": "#ffffff",
+                "accent_color": "#e37400",
+                "accent_color_content": "#ffffff",
+                "theme": "light",
+                "element_spacing_x": 6,
+                "element_spacing_y": 3,
+                "element_padding_x": 8,
+                "element_padding_y": 8,
+                "reduced_motion": True,
+                "target_size": 28,
+                "tooltip_assist": False,
+                "layout_simplification": False,
+            }
+        else:
+            category_base = prev.profile.model_dump()
+
+        user_res = self.user_engine.suggest_many(kept)
+        traces.add(user_res.trace)
+
+        merged = merge_profiles(category_base, user_res.suggestion_dict)
+
+        next_version = (prev.metadata.version + 1) if prev else 1
+        profile = PersonalizationProfile(
+            user_id=user_id,
+            metadata=ProfileMetadata(
+                origin="user",
+                created_at=now_iso(),
+                confidence_overall=user_res.confidence,
+                version=next_version,
+            ),
+            profile=ProfileKnobs(**merged),
+        )
+
+        self.profiles_repo.save_version(profile)
+        self.traces_repo.save_many(user_id, traces.traces)
+
+        d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
+        return OrchestratorBatchResult(
+            profile=profile,
+            diff=d,
+            traces=traces,
+            quarantined=False,
+            kept_batches=[b.batch_id for b in kept],
+            quarantined_batches=quarantined_batches,
+            rejected_batches=rejected_batches,
+        )

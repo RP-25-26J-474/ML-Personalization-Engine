@@ -6,6 +6,7 @@ import ChartSection from "../components/sections/ChartSection";
 import CategoryNearestNeighbor from "../components/charts/category-engine/CategoryNearestNeighbor";
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
+import { appendConsole, demoDelay } from "../utils/demo";
 
 import { CategoryEngineDefaultPayload } from "../constants";
 
@@ -54,7 +55,14 @@ export default function CategoryEngine() {
     }
 
     setIsLoading(true);
-    setConsoleText("Sending onboarding payload to /category/generate-profile...");
+    setConsoleText("");
+    appendConsole(setConsoleText, "Validating onboarding payload...");
+    await demoDelay();
+    appendConsole(
+      setConsoleText,
+      "Sending onboarding payload to /category/generate-profile..."
+    );
+    await demoDelay();
 
     try {
       const response = await postJson("/category/generate-profile", parsed.value);
@@ -63,14 +71,16 @@ export default function CategoryEngine() {
       const nnSimilarity = response?.quality?.nearest_neighbor_similarity;
       setNeighborIndices(response?.quality?.neighbor_indices ?? []);
       setNeighborDistances(response?.quality?.neighbor_distances ?? []);
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `Profile generated. Traces: ${response?.traces?.length ?? 0}. ` +
           `NN distance: ${formatMetric(nnDistance)}. ` +
           `NN similarity: ${formatMetric(nnSimilarity)}.`
       );
     } catch (error) {
       setOutputText("");
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `Request failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
         }`
@@ -84,9 +94,9 @@ export default function CategoryEngine() {
     if (!outputText) return;
     try {
       await navigator.clipboard.writeText(outputText);
-      setConsoleText("Output copied to clipboard.");
+      appendConsole(setConsoleText, "Output copied to clipboard.");
     } catch (error) {
-      setConsoleText(`Copy failed: ${error.message}`);
+      appendConsole(setConsoleText, `Copy failed: ${error.message}`);
     }
   };
 

@@ -35,10 +35,8 @@ def flatten_impairment_probs(onb: OnboardingResult) -> dict[str, float]:
     return {
         "vision_loss": onb.impairment_probs.vision.vision_loss,
         "color_blindness": onb.impairment_probs.vision.color_blindness,
-        "photophobia": onb.impairment_probs.vision.photophobia,
         "delayed_reaction": onb.impairment_probs.motor.delayed_reaction,
         "inaccurate_click": onb.impairment_probs.motor.inaccurate_click,
-        "tremor": onb.impairment_probs.motor.tremor,
         "literacy": onb.impairment_probs.literacy,
     }
 
@@ -106,6 +104,9 @@ class CategoryEngineService:
 
     def train_from_synth(self, n: int = 400) -> None:
         Xdicts, profiles = generate_synth_survey(n=n)
+        self.train_from_data(Xdicts, profiles)
+
+    def train_from_data(self, Xdicts: list[dict[str, float]], profiles: list[dict]) -> None:
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
         self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
         self._save_best()

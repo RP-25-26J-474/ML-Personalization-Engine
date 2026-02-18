@@ -10,6 +10,7 @@ import SimilarityScatter from "../components/charts/temp-detector/SimilarityScat
 import HeuristicRadar from "../components/charts/temp-detector/HeuristicRadar";
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
+import { appendConsole, demoDelay } from "../utils/demo";
 
 import { TemporaryUserDetectorDefaultPayload } from "../constants";
 
@@ -42,7 +43,11 @@ function TemporaryUserDetector() {
     }
 
     setIsLoading(true);
-    setConsoleText("Scoring batches via /temp-detector/score-batches...");
+    setConsoleText("");
+    appendConsole(setConsoleText, "Normalizing interaction batches...");
+    await demoDelay();
+    appendConsole(setConsoleText, "Scoring batches via /temp-detector/score-batches...");
+    await demoDelay();
 
     try {
       let payload = parsed.value;
@@ -63,9 +68,12 @@ function TemporaryUserDetector() {
         response?.kept?.[0]?.user_id ||
         response?.quarantined?.[0]?.user_id ||
         response?.rejected?.[0]?.user_id;
+      appendConsole(setConsoleText, "Fetching batch history...");
+      await demoDelay();
       await fetchHistory(userId);
       const summary = response?.summary;
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         summary
           ? `Batches scored. Kept ${summary.kept}, Quarantined ${summary.quarantined}, Rejected ${summary.rejected}.`
           : "Batches scored."
@@ -76,7 +84,8 @@ function TemporaryUserDetector() {
       setRejectedItems([]);
       setHistoryItems([]);
       setScoreSummary(null);
-      setConsoleText(
+      appendConsole(
+        setConsoleText,
         `Request failed: ${error.message}${
           error.data ? ` | ${formatJson(error.data)}` : ""
         }`
@@ -111,14 +120,14 @@ function TemporaryUserDetector() {
   const tabs = [
     {
       key: "legit",
-      label: "Legit Batches",
+      label: "Legit Batches (Primary User)",
       content: (
         <Accordian name="legit-batches" items={toAccordianItems(keptItems)} />
       ),
     },
     {
       key: "quarantined",
-      label: "Quarantined Batches",
+      label: "Quarantined Batches (Ambiguous)",
       content: (
         <Accordian
           name="quarantined-batches"
@@ -128,7 +137,7 @@ function TemporaryUserDetector() {
     },
     {
       key: "rejected",
-      label: "Rejected Batches",
+      label: "Rejected Batches (Temporary User)",
       content: (
         <Accordian
           name="rejected-batches"
@@ -224,8 +233,8 @@ function TemporaryUserDetector() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-8 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
-              <NormalTabs tabs={normalTabsContent} className="h-full" />
+            <div className="col-span-12 xl:col-span-8 max-h-[90vh] overflow-auto bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
+              <NormalTabs tabs={normalTabsContent} className="h-full" contentClassName="max-h-[60vh] overflow-auto" />
             </div>
           </div>
         </div>
