@@ -120,14 +120,14 @@ function TemporaryUserDetector() {
   const tabs = [
     {
       key: "legit",
-      label: "Legit Batches",
+      label: "Legit Batches (Primary User)",
       content: (
         <Accordian name="legit-batches" items={toAccordianItems(keptItems)} />
       ),
     },
     {
       key: "quarantined",
-      label: "Quarantined Batches",
+      label: "Quarantined Batches (Ambiguous)",
       content: (
         <Accordian
           name="quarantined-batches"
@@ -137,7 +137,7 @@ function TemporaryUserDetector() {
     },
     {
       key: "rejected",
-      label: "Rejected Batches",
+      label: "Rejected Batches (Temporary User)",
       content: (
         <Accordian
           name="rejected-batches"
