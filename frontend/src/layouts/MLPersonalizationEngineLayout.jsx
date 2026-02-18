@@ -4,41 +4,7 @@ import { logos } from "../assets";
 import ThemeButton from "../components/common/ThemeButton";
 import BreadCrumbs from "../components/common/BreadCrumbs";
 
-const navSections = [
-  {
-    label: "Platform",
-    items: [
-      {
-        to: "/dashboard",
-        label: "Dashboard",
-        subtitle: "Overview of the ML Personalization Engine",
-      },
-      {
-        to: "/temporary-user-detector",
-        label: "Temporary User Detector",
-        subtitle: "Manage temporary user detection settings",
-      },
-      {
-        to: "/category-engine",
-        label: "Category Personalization Engine",
-        subtitle: "Configure category-based recommendations",
-      },
-      {
-        to: "/user-engine",
-        label: "User Personalization Engine",
-        subtitle: "Manage user-based recommendations",
-      },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/pipelines", label: "Pipelines" },
-      { to: "/monitoring", label: "Monitoring" },
-      { to: "/settings", label: "Settings" },
-    ],
-  },
-];
+import { navSections } from "../constants";
 
 const pathLabelMap = navSections.reduce(
   (acc, section) => {
@@ -48,6 +14,14 @@ const pathLabelMap = navSections.reduce(
     return acc;
   },
   { "/": "Home" }
+);
+
+const routeMeta = navSections.flatMap((section) =>
+  section.items.map((item) => ({
+    ...item,
+    sectionLabel: section.label,
+    sectionRoot: section.items[0]?.to || "/",
+  }))
 );
 
 function humanizeSegment(segment) {
@@ -61,6 +35,18 @@ function MLPersonalizationEngineLayout() {
 
   const breadcrumbs = useMemo(() => {
     const path = location.pathname || "/";
+    if (path === "/") {
+      return [{ to: "/", label: "Home" }];
+    }
+
+    const match = routeMeta.find((item) => item.to === path);
+    if (match) {
+      return [
+        { to: match.sectionRoot, label: match.sectionLabel },
+        { to: match.to, label: match.label },
+      ];
+    }
+
     const parts = path.split("/").filter(Boolean);
     const items = [{ to: "/", label: "Home" }];
     let current = "";
@@ -128,8 +114,8 @@ function MLPersonalizationEngineLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col">
-        <header className="border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
+      <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-auto">
+        <header className="sticky border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
           <img
             src={logos.aura}
             alt="AURA Logo"
@@ -139,13 +125,15 @@ function MLPersonalizationEngineLayout() {
           <ThemeButton />
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-7xl mx-auto px-4 py-8">
+         <main className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-base-300 via-base-100 to-base-200">
+          <div className="max-w-9xl px-10 py-8 min-h-0 flex-1 min-h-0">
             <div className="flex flex-row items-center mb-6 justify-between">
               <div className="text-2xl font-semibold">{pageName}</div>
               <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>
             </div>
-            <Outlet />
+            <div className="flex-1 min-h-0">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
