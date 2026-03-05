@@ -58,6 +58,7 @@ function TrainModels() {
       color_blindness: 0.1,
       delayed_reaction: 0.3,
       inaccurate_click: 0.2,
+      motor_impairment: 0.34,
       literacy: 0.4,
     },
     profile: {
@@ -479,7 +480,7 @@ function TrainModels() {
                               />
                               <div className="mt-2 text-[11px] text-base-content/50">
                                 Required columns: vision_loss, color_blindness,
-                                delayed_reaction, inaccurate_click, literacy,
+                                delayed_reaction, inaccurate_click, motor_impairment, literacy,
                                 font_size, line_height, contrast_mode,
                                 primary_color, primary_color_content,
                                 secondary_color, secondary_color_content,
