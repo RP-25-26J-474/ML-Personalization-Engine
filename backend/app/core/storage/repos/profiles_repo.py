@@ -7,21 +7,49 @@ from app.core.storage.db import db
 class ProfilesRepo:
     def __init__(self) -> None:
         self._col = db.collection("profiles")
+        self._current_col = db.collection("profile_current")
         self._col.create_index([("user_id", 1), ("metadata.version", 1)], unique=True)
         self._col.create_index([("user_id", 1), ("metadata.created_at", -1)])
+        self._current_col.create_index([("user_id", 1)], unique=True)
 
     def get_latest(self, user_id: str) -> PersonalizationProfile | None:
+        # Authoritative latest source is history by version/time.
         doc = self._col.find_one(
             {"user_id": user_id},
             sort=[("metadata.version", -1), ("metadata.created_at", -1)],
         )
-        if doc is None:
+        if doc is not None:
+            doc.pop("_id", None)
+            return PersonalizationProfile.model_validate(doc)
+
+        current_doc = self._current_col.find_one({"user_id": user_id})
+        if current_doc is None:
             return None
-        doc.pop("_id", None)
-        return PersonalizationProfile.model_validate(doc)
+        current_doc.pop("_id", None)
+        return PersonalizationProfile.model_validate(current_doc)
 
     def save_version(self, profile: PersonalizationProfile) -> None:
-        self._col.insert_one(profile.model_dump())
+        history_doc = profile.model_dump()
+        history_doc.pop("_id", None)
+
+        # Idempotent history write to avoid duplicate-key failures on retries.
+        self._col.replace_one(
+            {
+                "user_id": profile.user_id,
+                "metadata.version": profile.metadata.version,
+            },
+            history_doc,
+            upsert=True,
+        )
+
+        current_doc = dict(history_doc)
+        current_doc.pop("_id", None)
+        current_doc.pop("user_id", None)
+        self._current_col.update_one(
+            {"user_id": profile.user_id},
+            {"$set": current_doc, "$setOnInsert": {"user_id": profile.user_id}},
+            upsert=True,
+        )
 
     def list_versions(self, user_id: str) -> list[PersonalizationProfile]:
         docs = self._col.find({"user_id": user_id}).sort(
