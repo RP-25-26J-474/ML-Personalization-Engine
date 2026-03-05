@@ -13,9 +13,9 @@ def status():
     user_engine = container.user_engine
     temp_baseline_repo = container.temp_baseline_repo
 
-    # demo summary
-    n_users = len(profiles_repo._profiles)
-    n_versions = sum(len(v) for v in profiles_repo._profiles.values())
+    n_users = profiles_repo.count_users()
+    n_versions = profiles_repo.count_versions()
+
     category_artifacts = category_engine.artifacts
     category_is_trained = category_artifacts is not None
     category_sample_count = models_repo.category_last_n_samples or (
