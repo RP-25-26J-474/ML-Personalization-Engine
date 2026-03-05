@@ -29,6 +29,9 @@ class ProfilesRepo:
         return PersonalizationProfile.model_validate(current_doc)
 
     def save_version(self, profile: PersonalizationProfile) -> None:
+        prev_current = self._current_col.find_one({"user_id": profile.user_id})
+        prev_profile = prev_current.get("profile") if prev_current else None
+
         history_doc = profile.model_dump()
         history_doc.pop("_id", None)
 
@@ -43,6 +46,10 @@ class ProfilesRepo:
         )
 
         current_doc = dict(history_doc)
+        current_doc["profile_changes"] = self._build_profile_changes(
+            prev_profile=prev_profile,
+            new_profile=current_doc.get("profile", {}),
+        )
         current_doc.pop("_id", None)
         current_doc.pop("user_id", None)
         self._current_col.update_one(
@@ -66,3 +73,18 @@ class ProfilesRepo:
 
     def count_versions(self) -> int:
         return self._col.count_documents({})
+
+    @staticmethod
+    def _build_profile_changes(prev_profile: dict | None, new_profile: dict) -> dict:
+        if not prev_profile:
+            return {"changed": [], "new": {}, "old": {}}
+
+        changed = [
+            key for key, new_value in new_profile.items()
+            if prev_profile.get(key) != new_value
+        ]
+        return {
+            "changed": changed,
+            "new": {key: new_profile.get(key) for key in changed},
+            "old": {key: prev_profile.get(key) for key in changed},
+        }
