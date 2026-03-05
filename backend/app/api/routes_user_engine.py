@@ -129,8 +129,12 @@ def train_seq_model(req: TrainSeqModelRequest):
         seed=req.seed,
     )
 
-    version = f"v{now_iso()}"
+    trained_at = now_iso()
+    version = f"v{trained_at}"
     container.models_repo.user_seq_model_version = version
+    container.models_repo.user_seq_n_clusters = train_stats["n_clusters"]
+    container.models_repo.user_seq_embedding_dim = req.embedding_dim
+    container.models_repo.user_seq_last_trained_at = trained_at
 
     return TrainSeqModelResponse(
         status="trained",
