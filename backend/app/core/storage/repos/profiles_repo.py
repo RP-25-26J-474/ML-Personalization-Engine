@@ -7,10 +7,12 @@ from app.core.storage.db import db
 class ProfilesRepo:
     def __init__(self) -> None:
         self._col = db.collection("profiles")
-        self._current_col = db.collection("profile_current")
+        self._current_col = db.collection("current_profile")
+        self._legacy_current_col = db.collection("profile_current")
         self._col.create_index([("user_id", 1), ("metadata.version", 1)], unique=True)
         self._col.create_index([("user_id", 1), ("metadata.created_at", -1)])
         self._current_col.create_index([("user_id", 1)], unique=True)
+        self._legacy_current_col.create_index([("user_id", 1)], unique=True)
 
     def get_latest(self, user_id: str) -> PersonalizationProfile | None:
         # Authoritative latest source is history by version/time.
@@ -22,11 +24,23 @@ class ProfilesRepo:
             doc.pop("_id", None)
             return PersonalizationProfile.model_validate(doc)
 
-        current_doc = self._current_col.find_one({"user_id": user_id})
+        current_doc = self.get_current(user_id)
         if current_doc is None:
             return None
-        current_doc.pop("_id", None)
         return PersonalizationProfile.model_validate(current_doc)
+
+    def get_current(self, user_id: str) -> dict | None:
+        current_doc = self._current_col.find_one({"user_id": user_id})
+        if current_doc is None:
+            current_doc = self._legacy_current_col.find_one({"user_id": user_id})
+        if current_doc is None:
+            return None
+
+        current_doc.pop("_id", None)
+        current_doc["profile_changes"] = self._normalize_profile_changes(
+            current_doc.get("profile_changes")
+        )
+        return current_doc
 
     def save_version(self, profile: PersonalizationProfile) -> None:
         prev_current = self._current_col.find_one({"user_id": profile.user_id})
@@ -87,4 +101,14 @@ class ProfilesRepo:
             "changed": changed,
             "new": {key: new_profile.get(key) for key in changed},
             "old": {key: prev_profile.get(key) for key in changed},
+        }
+
+    @staticmethod
+    def _normalize_profile_changes(profile_changes: dict | None) -> dict:
+        if not profile_changes:
+            return {"changed": [], "new": {}, "old": {}}
+        return {
+            "changed": profile_changes.get("changed") or [],
+            "new": profile_changes.get("new") or {},
+            "old": profile_changes.get("old") or {},
         }
