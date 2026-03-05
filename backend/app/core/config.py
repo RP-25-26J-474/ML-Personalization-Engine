@@ -1,3 +1,6 @@
+from typing import Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +12,19 @@ class Settings(BaseSettings):
 
     # Demo-mode storage
     ARTIFACTS_DIR: str = "artifacts"
+    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "mlpe"
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            raw = v.strip().lower()
+            if raw in {"1", "true", "yes", "on", "debug", "dev", "development"}:
+                return True
+            if raw in {"0", "false", "no", "off", "release", "prod", "production"}:
+                return False
+        return v
 
 
 settings = Settings()

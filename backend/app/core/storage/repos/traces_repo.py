@@ -1,15 +1,29 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Dict, List
+
 from app.core.schemas.trace import DecisionTrace
+from app.core.storage.db import db
 
 
-@dataclass
 class TracesRepo:
-    _traces: Dict[str, List[DecisionTrace]] = field(default_factory=dict)
+    def __init__(self) -> None:
+        self._col = db.collection("traces")
+        self._col.create_index([("user_id", 1)])
 
     def save_many(self, user_id: str, traces: list[DecisionTrace]) -> None:
-        self._traces.setdefault(user_id, []).extend(traces)
+        if not traces:
+            return
+        docs = []
+        for trace in traces:
+            row = trace.model_dump()
+            row["user_id"] = user_id
+            docs.append(row)
+        self._col.insert_many(docs)
 
     def list(self, user_id: str) -> list[DecisionTrace]:
-        return list(self._traces.get(user_id, []))
+        docs = self._col.find({"user_id": user_id})
+        out: list[DecisionTrace] = []
+        for doc in docs:
+            doc.pop("_id", None)
+            doc.pop("user_id", None)
+            out.append(DecisionTrace.model_validate(doc))
+        return out

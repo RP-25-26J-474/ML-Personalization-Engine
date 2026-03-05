@@ -9,9 +9,8 @@ def status():
     profiles_repo = container.profiles_repo
     models_repo = container.models_repo
 
-    # demo summary
-    n_users = len(profiles_repo._profiles)
-    n_versions = sum(len(v) for v in profiles_repo._profiles.values())
+    n_users = profiles_repo.count_users()
+    n_versions = profiles_repo.count_versions()
 
     return {
         "models": {
