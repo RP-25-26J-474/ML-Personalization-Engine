@@ -8,11 +8,9 @@ class ProfilesRepo:
     def __init__(self) -> None:
         self._col = db.collection("profiles")
         self._current_col = db.collection("current_profile")
-        self._legacy_current_col = db.collection("profile_current")
         self._col.create_index([("user_id", 1), ("metadata.version", 1)], unique=True)
         self._col.create_index([("user_id", 1), ("metadata.created_at", -1)])
         self._current_col.create_index([("user_id", 1)], unique=True)
-        self._legacy_current_col.create_index([("user_id", 1)], unique=True)
 
     def get_latest(self, user_id: str) -> PersonalizationProfile | None:
         # Authoritative latest source is history by version/time.
@@ -31,8 +29,6 @@ class ProfilesRepo:
 
     def get_current(self, user_id: str) -> dict | None:
         current_doc = self._current_col.find_one({"user_id": user_id})
-        if current_doc is None:
-            current_doc = self._legacy_current_col.find_one({"user_id": user_id})
         if current_doc is None:
             return None
 
