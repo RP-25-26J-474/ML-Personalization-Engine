@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.api.wiring import container
 from app.core.engine.merge.diff import diff_profiles
 
@@ -64,3 +64,11 @@ def list_profile_diffs(user_id: str):
             }
         )
     return history
+
+
+@router.get("/current-profile")
+def get_current_profile(user_id: str):
+    current = container.profiles_repo.get_current(user_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail=f"current profile not found for user_id={user_id}")
+    return current
