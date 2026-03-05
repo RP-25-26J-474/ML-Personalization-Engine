@@ -9,7 +9,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 from app.core.schemas.interactions import InteractionBatch
-from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 from app.core.engine.user_engine import rules
 import torch
 from torch import nn

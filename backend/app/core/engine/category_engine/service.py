@@ -15,7 +15,7 @@ from app.core.engine.category_engine.model_knn import (
     train_knn,
 )
 from app.core.engine.category_engine.synth_data import generate_synth_survey
-from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 
 CATEGORY_BEST_KEY = "category_engine/category_best"
 

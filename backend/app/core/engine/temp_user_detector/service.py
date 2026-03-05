@@ -12,7 +12,7 @@ from app.core.utils.ids import new_id
 from app.core.engine.temp_user_detector.features import extract_features, FEATURE_ORDER
 from app.core.engine.temp_user_detector.model_iforest import new_iforest, score_anomaly
 from app.core.engine.temp_user_detector.synth_data import generate_synth_interactions
-from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 from app.core.storage.repos.temp_baseline_repo import TempBaselineRepo
 
 
