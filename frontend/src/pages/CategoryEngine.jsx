@@ -7,6 +7,7 @@ import CategoryNearestNeighbor from "../components/charts/category-engine/Catego
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 import { appendConsole, demoDelay } from "../utils/demo";
+import { appendStateMachineTraces } from "../utils/traces";
 
 import { CategoryEngineDefaultPayload } from "../constants";
 
@@ -77,6 +78,7 @@ export default function CategoryEngine() {
           `NN distance: ${formatMetric(nnDistance)}. ` +
           `NN similarity: ${formatMetric(nnSimilarity)}.`
       );
+      appendStateMachineTraces(setConsoleText, response?.traces);
     } catch (error) {
       setOutputText("");
       appendConsole(
