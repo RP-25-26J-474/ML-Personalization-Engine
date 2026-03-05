@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from app.api.wiring import container
 from app.core.engine.merge.diff import diff_profiles
+from app.core.state_machine.definitions import MACHINES
 
 router = APIRouter()
 
@@ -72,3 +73,29 @@ def get_current_profile(user_id: str):
     if current is None:
         raise HTTPException(status_code=404, detail=f"current profile not found for user_id={user_id}")
     return current
+
+
+@router.get("/state/current")
+def get_state_current(machine: str, entity_id: str):
+    if machine not in MACHINES:
+        raise HTTPException(status_code=400, detail=f"unknown machine: {machine}")
+    state = container.state_machine_service.current_state(machine, entity_id)
+    if state is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"state not found for machine={machine}, entity_id={entity_id}",
+        )
+    return {"machine": machine, "entity_id": entity_id, "state": state}
+
+
+@router.get("/state/transitions")
+def list_state_transitions(machine: str, entity_id: str, limit: int = 200):
+    if machine not in MACHINES:
+        raise HTTPException(status_code=400, detail=f"unknown machine: {machine}")
+    if limit < 1:
+        raise HTTPException(status_code=400, detail="limit must be >= 1")
+    return container.state_machine_service.list_transitions(
+        machine=machine,
+        entity_id=entity_id,
+        limit=min(limit, 1000),
+    )
