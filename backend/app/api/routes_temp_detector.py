@@ -150,8 +150,10 @@ def score_batches(req: TempScoreBatchesRequest):
 def train_global(req: TrainGlobalRequest):
     X = np.array(req.feature_matrix, dtype=float)
     container.temp_detector.train_global(X)
-    version = f"v{now_iso()}"
+    trained_at = now_iso()
+    version = f"v{trained_at}"
     container.models_repo.global_iforest_version = version
+    container.models_repo.global_iforest_last_trained_at = trained_at
     return {"status": "trained", "n_samples": int(X.shape[0]), "version": version}
 
 
@@ -163,8 +165,10 @@ class TrainFromSynthRequest(BaseModel):
 @router.post("/train-synth")
 def train_synth(req: TrainFromSynthRequest):
     n_samples = container.temp_detector.train_from_synth(n=req.n_samples, seed=req.seed)
-    version = f"v{now_iso()}"
+    trained_at = now_iso()
+    version = f"v{trained_at}"
     container.models_repo.global_iforest_version = version
+    container.models_repo.global_iforest_last_trained_at = trained_at
     return {"status": "trained", "n_samples": n_samples, "version": version}
 
 
@@ -193,8 +197,10 @@ def train_from_batches(req: TrainFromBatchesRequest):
 
     X = np.array([row.features for row in rows], dtype=float)
     container.temp_detector.train_global(X)
-    version = f"v{now_iso()}"
+    trained_at = now_iso()
+    version = f"v{trained_at}"
     container.models_repo.global_iforest_version = version
+    container.models_repo.global_iforest_last_trained_at = trained_at
     return {"status": "trained", "n_samples": int(X.shape[0]), "version": version}
 
 
