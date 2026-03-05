@@ -7,6 +7,7 @@ import ProfileDiffHistory from "../components/sections/ProfileDiffHistory";
 import { getJson, postJson } from "../api/MLPEClient";
 import { formatJson, tryParseJson } from "../utils/json";
 import { appendConsole, demoDelay } from "../utils/demo";
+import { appendStateMachineTraces } from "../utils/traces";
 
 import {
   UserEngineDefaultPayload,
@@ -79,6 +80,7 @@ export default function UserEngine() {
           response?.quarantined ? "yes" : "no"
         }.`
       );
+      appendStateMachineTraces(setConsoleText, response?.traces);
       const userId = extractUserId(parsed.value);
       if (userId) {
         appendConsole(setConsoleText, "Loading profile diff history...");

@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.state_machine.service import StateMachineError
 
 from app.api.routes_dashboard import router as dashboard_router
 from app.api.routes_temp_detector import router as temp_router
@@ -33,6 +35,10 @@ def create_app() -> FastAPI:
     app.include_router(category_router, prefix="/category", tags=["category"])
     app.include_router(user_router, prefix="/user", tags=["user"])
     app.include_router(data_router, prefix="/data", tags=["data"])
+
+    @app.exception_handler(StateMachineError)
+    async def handle_state_machine_error(_: Request, exc: StateMachineError):
+        return JSONResponse(status_code=exc.status_code, content=exc.to_response())
 
     @app.get("/health")
     def health():

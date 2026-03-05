@@ -9,7 +9,8 @@ from app.core.schemas.profile import (
     ProfileKnobs,
     ProfileDiff,
 )
-from app.core.schemas.trace import TraceBundle
+from app.core.schemas.trace import TraceBundle, DecisionTrace, TraceAction
+from app.core.utils.ids import new_id
 from app.core.utils.time import now_iso
 
 from app.core.engine.temp_user_detector.service import TempUserDetectorService
@@ -80,10 +81,123 @@ class Orchestrator:
     def _batch_entity_id(user_id: str, batch_id: str) -> str:
         return f"{user_id}:{batch_id}"
 
+    def _sm_init(
+        self,
+        traces: TraceBundle,
+        *,
+        machine: str,
+        entity_id: str,
+        actor: str,
+        reason: str,
+        metadata: dict | None = None,
+    ) -> None:
+        current = self.state_machine.current_state(machine, entity_id)
+        state = self.state_machine.ensure_initialized(
+            machine=machine,
+            entity_id=entity_id,
+            actor=actor,
+            reason=reason,
+            metadata=metadata,
+        )
+        if current is None:
+            message = (
+                f"[SM:{machine}] {entity_id}: initialized to '{state}' "
+                f"(reason: {reason})"
+            )
+            traces.add(
+                DecisionTrace(
+                    trace_id=new_id("tr"),
+                    stage="state_machine",
+                    inputs_summary={
+                        "machine": machine,
+                        "entity_id": entity_id,
+                        "event": "initialized",
+                        "to_state": state,
+                    },
+                    actions=[
+                        TraceAction(
+                            type="state_initialized",
+                            details={
+                                "machine": machine,
+                                "entity_id": entity_id,
+                                "to_state": state,
+                                "reason": reason,
+                                "message": message,
+                                "metadata": metadata or {},
+                            },
+                        )
+                    ],
+                    warnings=[message],
+                )
+            )
+
+    def _sm_transition(
+        self,
+        traces: TraceBundle,
+        *,
+        machine: str,
+        entity_id: str,
+        to_state: str,
+        actor: str,
+        reason: str,
+        metadata: dict | None = None,
+    ) -> None:
+        from_state = self.state_machine.current_state(machine, entity_id)
+        state = self.state_machine.transition(
+            machine=machine,
+            entity_id=entity_id,
+            to_state=to_state,
+            actor=actor,
+            reason=reason,
+            metadata=metadata,
+        )
+        if from_state == state:
+            message = (
+                f"[SM:{machine}] {entity_id}: stayed at '{state}' "
+                f"(reason: {reason})"
+            )
+            event = "state_no_op"
+        else:
+            message = (
+                f"[SM:{machine}] {entity_id}: '{from_state}' -> '{state}' "
+                f"(reason: {reason})"
+            )
+            event = "state_transitioned"
+
+        traces.add(
+            DecisionTrace(
+                trace_id=new_id("tr"),
+                stage="state_machine",
+                inputs_summary={
+                    "machine": machine,
+                    "entity_id": entity_id,
+                    "event": event,
+                    "from_state": from_state,
+                    "to_state": state,
+                },
+                actions=[
+                    TraceAction(
+                        type=event,
+                        details={
+                            "machine": machine,
+                            "entity_id": entity_id,
+                            "from_state": from_state,
+                            "to_state": state,
+                            "reason": reason,
+                            "message": message,
+                            "metadata": metadata or {},
+                        },
+                    )
+                ],
+                warnings=[message],
+            )
+        )
+
     # --------- Category (new user) ----------
     def handle_onboarding(self, onboarding: OnboardingResult) -> OrchestratorResult:
         traces = TraceBundle()
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=onboarding.user_id,
             actor="orchestrator",
@@ -109,8 +223,8 @@ class Orchestrator:
         )
 
         self.profiles_repo.save_version(profile)
-        self.traces_repo.save_many(onboarding.user_id, traces.traces)
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=onboarding.user_id,
             to_state="category_ready",
@@ -118,13 +232,15 @@ class Orchestrator:
             reason="category_profile_generated",
             metadata={"version": next_version},
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=onboarding.user_id,
             to_state="collecting",
             actor="orchestrator",
             reason="onboarding_completed",
         )
+        self.traces_repo.save_many(onboarding.user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
         quality = {
@@ -138,20 +254,23 @@ class Orchestrator:
     # --------- User update (existing user) ----------
     def handle_interactions(self, batch: InteractionBatch) -> OrchestratorResult:
         traces = TraceBundle()
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batch.user_id,
             actor="orchestrator",
             reason="interaction_received",
         )
         batch_entity = self._batch_entity_id(batch.user_id, batch.batch_id)
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=BATCH_PIPELINE.name,
             entity_id=batch_entity,
             actor="orchestrator",
             reason="batch_ingested",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=BATCH_PIPELINE.name,
             entity_id=batch_entity,
             to_state="scored",
@@ -178,7 +297,8 @@ class Orchestrator:
         )
         if filt.outcome == "keep":
             self.temp_detector.update_baseline(batch.user_id, filt.features)
-            self.state_machine.transition(
+            self._sm_transition(
+                traces,
                 machine=BATCH_PIPELINE.name,
                 entity_id=batch_entity,
                 to_state="kept",
@@ -189,7 +309,8 @@ class Orchestrator:
 
         if filt.is_quarantined:
             quarantine_state = "rejected" if filt.is_rejected else "quarantined"
-            self.state_machine.transition(
+            self._sm_transition(
+                traces,
                 machine=BATCH_PIPELINE.name,
                 entity_id=batch_entity,
                 to_state=quarantine_state,
@@ -253,13 +374,15 @@ class Orchestrator:
         # 5) Save new profile version
         next_version = (prev.metadata.version + 1) if prev else 1
         update_entity = f"{batch.user_id}:{next_version}"
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             actor="orchestrator",
             reason="profile_update_started",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="validated",
@@ -278,36 +401,40 @@ class Orchestrator:
         )
 
         self.profiles_repo.save_version(profile)
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="persisted",
             actor="orchestrator",
             reason="profile_saved",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="activated",
             actor="orchestrator",
             reason="profile_activated",
         )
-        self.traces_repo.save_many(batch.user_id, traces.traces)
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batch.user_id,
             to_state="nightly_eligible",
             actor="orchestrator",
             reason="kept_interaction_processed",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batch.user_id,
             to_state="updating",
             actor="orchestrator",
             reason="user_profile_update_started",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batch.user_id,
             to_state="active",
@@ -315,13 +442,15 @@ class Orchestrator:
             reason="user_profile_update_completed",
             metadata={"version": next_version},
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batch.user_id,
             to_state="collecting",
             actor="orchestrator",
             reason="resume_collection_after_update",
         )
+        self.traces_repo.save_many(batch.user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
         return OrchestratorResult(profile=profile, diff=d, traces=traces)
@@ -329,7 +458,8 @@ class Orchestrator:
 
     def handle_interactions_many(self, batches: list[InteractionBatch]) -> OrchestratorBatchResult:
         traces = TraceBundle()
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=batches[0].user_id,
             actor="orchestrator",
@@ -342,13 +472,15 @@ class Orchestrator:
 
         for batch in batches:
             batch_entity = self._batch_entity_id(batch.user_id, batch.batch_id)
-            self.state_machine.ensure_initialized(
+            self._sm_init(
+                traces,
                 machine=BATCH_PIPELINE.name,
                 entity_id=batch_entity,
                 actor="orchestrator",
                 reason="batch_ingested",
             )
-            self.state_machine.transition(
+            self._sm_transition(
+                traces,
                 machine=BATCH_PIPELINE.name,
                 entity_id=batch_entity,
                 to_state="scored",
@@ -373,7 +505,8 @@ class Orchestrator:
             )
             if filt.outcome == "keep":
                 self.temp_detector.update_baseline(batch.user_id, filt.features)
-                self.state_machine.transition(
+                self._sm_transition(
+                    traces,
                     machine=BATCH_PIPELINE.name,
                     entity_id=batch_entity,
                     to_state="kept",
@@ -384,7 +517,8 @@ class Orchestrator:
 
             if filt.is_quarantined:
                 quarantine_state = "rejected" if filt.is_rejected else "quarantined"
-                self.state_machine.transition(
+                self._sm_transition(
+                    traces,
                     machine=BATCH_PIPELINE.name,
                     entity_id=batch_entity,
                     to_state=quarantine_state,
@@ -459,27 +593,31 @@ class Orchestrator:
 
         next_version = (prev.metadata.version + 1) if prev else 1
         update_entity = f"{user_id}:{next_version}"
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=user_id,
             to_state="nightly_eligible",
             actor="orchestrator",
             reason="legitimate_batches_available",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=user_id,
             to_state="updating",
             actor="orchestrator",
             reason="user_batch_update_started",
         )
-        self.state_machine.ensure_initialized(
+        self._sm_init(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             actor="orchestrator",
             reason="profile_update_started",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="validated",
@@ -498,22 +636,24 @@ class Orchestrator:
         )
 
         self.profiles_repo.save_version(profile)
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="persisted",
             actor="orchestrator",
             reason="profile_saved",
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=PROFILE_UPDATE.name,
             entity_id=update_entity,
             to_state="activated",
             actor="orchestrator",
             reason="profile_activated",
         )
-        self.traces_repo.save_many(user_id, traces.traces)
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=user_id,
             to_state="active",
@@ -521,13 +661,15 @@ class Orchestrator:
             reason="user_batch_update_completed",
             metadata={"version": next_version},
         )
-        self.state_machine.transition(
+        self._sm_transition(
+            traces,
             machine=USER_LIFECYCLE.name,
             entity_id=user_id,
             to_state="collecting",
             actor="orchestrator",
             reason="resume_collection_after_batch_update",
         )
+        self.traces_repo.save_many(user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
         return OrchestratorBatchResult(
