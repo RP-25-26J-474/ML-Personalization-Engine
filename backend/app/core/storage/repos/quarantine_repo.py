@@ -1,6 +1,8 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List
+
+from app.core.storage.db import db
 
 
 @dataclass
@@ -12,12 +14,18 @@ class QuarantineRow:
     payload: Dict[str, Any]
 
 
-@dataclass
 class QuarantineRepo:
-    _rows: Dict[str, List[QuarantineRow]] = field(default_factory=dict)
+    def __init__(self) -> None:
+        self._col = db.collection("quarantine")
+        self._col.create_index([("user_id", 1), ("batch_id", 1)])
 
     def add(self, row: QuarantineRow) -> None:
-        self._rows.setdefault(row.user_id, []).append(row)
+        self._col.insert_one(asdict(row))
 
     def list(self, user_id: str) -> list[QuarantineRow]:
-        return list(self._rows.get(user_id, []))
+        docs = self._col.find({"user_id": user_id})
+        out: list[QuarantineRow] = []
+        for doc in docs:
+            doc.pop("_id", None)
+            out.append(QuarantineRow(**doc))
+        return out
