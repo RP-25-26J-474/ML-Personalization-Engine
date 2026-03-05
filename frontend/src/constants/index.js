@@ -185,6 +185,7 @@ export const CategoryEngineDefaultPayload = {
     motor: {
       delayed_reaction: 0.3,
       inaccurate_click: 0.2,
+      motor_impairment: 0.34,
     },
     literacy: 0.4,
   },

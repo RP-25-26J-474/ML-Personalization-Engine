@@ -3,16 +3,17 @@ import random
 
 
 def make_synth_survey_row(rnd: random.Random):
-    # 5D impairment vector
+    # 6D impairment vector
     vision_loss = rnd.random()
     color_blindness = rnd.random() * 0.6
     delayed_reaction = rnd.random() * 0.6
     inaccurate_click = rnd.random() * 0.6
+    motor_impairment = rnd.random() * 0.6
     literacy = rnd.random()
 
     # Convert raw needs into plausible knob preferences
     vision_weight = (vision_loss + color_blindness) / 2.0
-    motor_weight = (delayed_reaction + inaccurate_click) / 2.0
+    motor_weight = (delayed_reaction + inaccurate_click + motor_impairment) / 3.0
 
     font_size = int(round(11 + 7 * vision_weight + 2 * literacy))
     target_size = int(round(24 + 10 * motor_weight + 5 * vision_weight))
@@ -49,6 +50,7 @@ def make_synth_survey_row(rnd: random.Random):
         "color_blindness": color_blindness,
         "delayed_reaction": delayed_reaction,
         "inaccurate_click": inaccurate_click,
+        "motor_impairment": motor_impairment,
         "literacy": literacy,
     }
     return features, profile
