@@ -6,7 +6,7 @@ import numpy as np
 
 from app.core.schemas.interactions import InteractionBatch, EventsAgg
 from app.core.schemas.trace import DecisionTrace, TraceAction
-from app.core.storage.artifacts.artifact_store import ArtifactStore
+from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 from app.core.utils.ids import new_id
 from app.core.engine.user_engine import seq_autoencoder
 from app.core.engine.user_engine import rules
