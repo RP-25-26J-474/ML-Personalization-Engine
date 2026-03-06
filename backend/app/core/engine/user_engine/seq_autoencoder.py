@@ -170,7 +170,7 @@ def train_seq_model(
     with torch.no_grad():
         all_x = torch.tensor(padded, dtype=torch.float32, device=device)
         all_lens = torch.tensor(lengths, dtype=torch.long, device=device)
-        embeddings = model.encode(all_x, all_lens).cpu().numpy()
+        embeddings = model.encode(all_x, all_lens).cpu().numpy().astype(np.float64, copy=False)
 
     if n_clusters is None:
         n_clusters = max(1, min(6, int(np.sqrt(len(embeddings)) or 1)))
@@ -276,7 +276,11 @@ def infer_cluster(
     with torch.no_grad():
         embedding = bundle.model.encode(x, lens).cpu().numpy()[0]
 
-    cluster_id = int(bundle.kmeans.predict([embedding])[0])
+    # Keep dtype aligned with persisted KMeans internals (legacy bundles may be float32).
+    kmeans_dtype = getattr(bundle.kmeans.cluster_centers_, "dtype", np.float64)
+    predict_x = np.asarray(embedding, dtype=kmeans_dtype, order="C").reshape(1, -1)
+
+    cluster_id = int(bundle.kmeans.predict(predict_x)[0])
     center = bundle.kmeans.cluster_centers_[cluster_id]
     dist = float(np.linalg.norm(embedding - center))
     max_dist = max(1e-6, float(bundle.cluster_max_dist.get(cluster_id, 1.0)))
