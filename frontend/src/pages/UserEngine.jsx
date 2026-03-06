@@ -74,12 +74,21 @@ export default function UserEngine() {
     try {
       const response = await postJson(endpoint, parsed.value);
       setOutputText(formatJson(response));
-      appendConsole(
-        setConsoleText,
-        `Update complete. Quarantined: ${
-          response?.quarantined ? "yes" : "no"
-        }.`
-      );
+      if (response?.quarantined || !response?.profile) {
+        appendConsole(
+          setConsoleText,
+          "No profile update persisted. Interaction was filtered by Temporary User Detector."
+        );
+      } else {
+        const version = response?.profile?.metadata?.version;
+        const origin = response?.profile?.metadata?.origin;
+        appendConsole(
+          setConsoleText,
+          `Profile updated successfully${
+            version ? ` (v${version})` : ""
+          }${origin ? ` origin=${origin}` : ""}.`
+        );
+      }
       appendStateMachineTraces(setConsoleText, response?.traces);
       const userId = extractUserId(parsed.value);
       if (userId) {
