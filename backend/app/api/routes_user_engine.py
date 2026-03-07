@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 import numpy as np
 
@@ -48,6 +48,31 @@ class TrainSeqModelResponse(BaseModel):
     n_sequences: int
     n_clusters: int | None = None
     model_version: str | None = None
+
+
+class UserClusterPoint(BaseModel):
+    user_id: str
+    sequence_len: int
+    cluster_id: int
+    distance: float
+    similarity: float
+    coords: list[float] = Field(min_length=2, max_length=2)
+
+
+class UserClusterSummary(BaseModel):
+    cluster_id: int
+    count: int
+    avg_similarity: float
+
+
+class UserClusterMapResponse(BaseModel):
+    status: str
+    model_version: str
+    n_points: int
+    n_clusters: int
+    outcome_filter: list[str]
+    points: list[UserClusterPoint]
+    clusters: list[UserClusterSummary]
 
 
 @router.post("/update-profile", response_model=UserUpdateResponse)
@@ -142,4 +167,122 @@ def train_seq_model(req: TrainSeqModelRequest):
         n_sequences=train_stats["n_sequences"],
         n_clusters=train_stats["n_clusters"],
         model_version=version,
+    )
+
+
+def _project_to_2d(embeddings: np.ndarray) -> np.ndarray:
+    if embeddings.shape[0] == 0:
+        return np.zeros((0, 2), dtype=np.float64)
+    if embeddings.shape[0] == 1:
+        return np.zeros((1, 2), dtype=np.float64)
+
+    centered = embeddings - np.mean(embeddings, axis=0, keepdims=True)
+    _, _, vh = np.linalg.svd(centered, full_matrices=False)
+    components = vh[:2].T
+    projected = centered @ components
+    if projected.shape[1] == 1:
+        projected = np.hstack([projected, np.zeros((projected.shape[0], 1), dtype=np.float64)])
+    return projected[:, :2]
+
+
+@router.get("/cluster-map", response_model=UserClusterMapResponse)
+def user_cluster_map(
+    outcomes: list[str] = Query(default=[]),
+    min_sequence_len: int = 2,
+    max_sequence_len: int = 20,
+):
+    bundle = container.user_engine._seq_bundle
+    model_version = container.models_repo.user_seq_model_version
+    if bundle is None:
+        return UserClusterMapResponse(
+            status="untrained",
+            model_version=model_version,
+            n_points=0,
+            n_clusters=0,
+            outcome_filter=list(outcomes),
+            points=[],
+            clusters=[],
+        )
+
+    rows = container.temp_batches_repo.list_all()
+    if outcomes:
+        allowed = set(outcomes)
+        rows = [row for row in rows if row.outcome in allowed]
+
+    users: dict[str, list] = {}
+    for row in rows:
+        users.setdefault(row.user_id, []).append(row)
+
+    user_ids: list[str] = []
+    sequences: list[np.ndarray] = []
+    sequence_lens: list[int] = []
+    for user_id, user_rows in users.items():
+        ordered = sorted(
+            user_rows,
+            key=lambda r: seq_autoencoder.parse_timestamp(r.captured_at),
+        )
+        batches = [InteractionBatch(**r.payload) for r in ordered]
+        if len(batches) < min_sequence_len:
+            continue
+        selected = batches[-max_sequence_len:]
+        user_ids.append(user_id)
+        sequence_lens.append(len(selected))
+        sequences.append(
+            np.stack([seq_autoencoder.extract_feature_vector(b) for b in selected], axis=0)
+        )
+
+    if not sequences:
+        return UserClusterMapResponse(
+            status="no_sequences",
+            model_version=model_version,
+            n_points=0,
+            n_clusters=int(bundle.config.get("n_clusters", 0)),
+            outcome_filter=list(outcomes),
+            points=[],
+            clusters=[],
+        )
+
+    embeddings = seq_autoencoder.encode_sequences(bundle, sequences)
+    projected = _project_to_2d(embeddings)
+    kmeans_dtype = getattr(bundle.kmeans.cluster_centers_, "dtype", np.float64)
+    predicted = bundle.kmeans.predict(
+        np.asarray(embeddings, dtype=kmeans_dtype, order="C")
+    )
+
+    points: list[UserClusterPoint] = []
+    cluster_sims: dict[int, list[float]] = {}
+    for idx, cluster_id in enumerate(predicted):
+        center = bundle.kmeans.cluster_centers_[cluster_id]
+        dist = float(np.linalg.norm(embeddings[idx] - center))
+        max_dist = max(1e-6, float(bundle.cluster_max_dist.get(int(cluster_id), 1.0)))
+        similarity = max(0.0, 1.0 - min(1.0, dist / max_dist))
+        cluster_sims.setdefault(int(cluster_id), []).append(similarity)
+        points.append(
+            UserClusterPoint(
+                user_id=user_ids[idx],
+                sequence_len=sequence_lens[idx],
+                cluster_id=int(cluster_id),
+                distance=dist,
+                similarity=float(similarity),
+                coords=[float(projected[idx, 0]), float(projected[idx, 1])],
+            )
+        )
+
+    clusters = [
+        UserClusterSummary(
+            cluster_id=cluster_id,
+            count=len(similarities),
+            avg_similarity=float(np.mean(similarities)),
+        )
+        for cluster_id, similarities in sorted(cluster_sims.items(), key=lambda item: item[0])
+    ]
+
+    return UserClusterMapResponse(
+        status="ready",
+        model_version=model_version,
+        n_points=len(points),
+        n_clusters=int(bundle.config.get("n_clusters", len(clusters))),
+        outcome_filter=list(outcomes),
+        points=points,
+        clusters=clusters,
     )

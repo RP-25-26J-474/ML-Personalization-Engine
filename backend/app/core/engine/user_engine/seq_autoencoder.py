@@ -286,3 +286,23 @@ def infer_cluster(
     max_dist = max(1e-6, float(bundle.cluster_max_dist.get(cluster_id, 1.0)))
     similarity = max(0.0, 1.0 - min(1.0, dist / max_dist))
     return cluster_id, dist, similarity
+
+
+def encode_sequences(bundle: SeqModelBundle, sequences: list[np.ndarray]) -> np.ndarray:
+    _ensure_torch()
+    if not sequences:
+        return np.zeros((0, 0), dtype=np.float64)
+
+    max_len = int(bundle.config.get("max_len", 20))
+    scaled = [bundle.scaler.transform(sequence) for sequence in sequences]
+    padded, lengths = _pad_sequences(scaled, max_len)
+
+    device = torch.device("cpu")
+    x = torch.tensor(padded, dtype=torch.float32, device=device)
+    lens = torch.tensor(lengths, dtype=torch.long, device=device)
+
+    bundle.model.eval()
+    with torch.no_grad():
+        embeddings = bundle.model.encode(x, lens).cpu().numpy()
+
+    return embeddings.astype(np.float64, copy=False)

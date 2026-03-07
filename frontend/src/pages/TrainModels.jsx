@@ -3,6 +3,7 @@ import ConsoleSection from "../components/sections/ConsoleSection";
 import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
 import { getJson, postForm, postJson } from "../api/MLPEClient";
 import IsolationForestTrees from "../components/charts/temp-detector/IsolationForestTrees";
+import UserSequenceClusterMap from "../components/charts/user-engine/UserSequenceClusterMap";
 import Modal from "../components/modals/Modal";
 
 function TrainModels() {
@@ -51,6 +52,15 @@ function TrainModels() {
     sequences: 0,
     lastRun: "--",
   });
+  const [userClusterMap, setUserClusterMap] = useState({
+    status: "idle",
+    model_version: "v0",
+    n_points: 0,
+    n_clusters: 0,
+    outcome_filter: [],
+    points: [],
+    clusters: [],
+  });
 
   const categoryTrainingSample = {
     features: {
@@ -87,6 +97,21 @@ function TrainModels() {
     modelType === "category" ||
     modelType === "temp-detector" ||
     modelType === "user";
+
+  const userOutcomesToList = (value) =>
+    value === "all"
+      ? []
+      : value === "keep_quarantine"
+      ? ["keep", "quarantine"]
+      : ["keep"];
+
+  const buildUserClusterMapPath = (outcomes) => {
+    const params = new URLSearchParams();
+    params.set("min_sequence_len", String(userMinSeqLen));
+    params.set("max_sequence_len", String(userMaxSeqLen));
+    outcomes.forEach((outcome) => params.append("outcomes", outcome));
+    return `/user/cluster-map?${params.toString()}`;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +202,15 @@ function TrainModels() {
     let cancelled = false;
     if (modelType !== "user") {
       setUserMetrics((prev) => ({ ...prev, status: "Idle" }));
+      setUserClusterMap({
+        status: "idle",
+        model_version: "v0",
+        n_points: 0,
+        n_clusters: 0,
+        outcome_filter: [],
+        points: [],
+        clusters: [],
+      });
       return () => {
         cancelled = true;
       };
@@ -187,6 +221,8 @@ function TrainModels() {
       try {
         const status = await getJson("/dashboard/status");
         const tempStatus = await getJson("/temp-detector/status");
+        const outcomes = userOutcomesToList(userOutcomes);
+        const clusterMap = await getJson(buildUserClusterMapPath(outcomes));
         if (cancelled) return;
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
@@ -196,10 +232,22 @@ function TrainModels() {
           sequences: tempStatus?.history?.kept ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
+        setUserClusterMap(
+          clusterMap || {
+            status: "idle",
+            model_version: "v0",
+            n_points: 0,
+            n_clusters: 0,
+            outcome_filter: [],
+            points: [],
+            clusters: [],
+          }
+        );
         setConsoleText("User engine status loaded.");
       } catch (error) {
         if (cancelled) return;
         setUserMetrics((prev) => ({ ...prev, status: "Failed" }));
+        setUserClusterMap((prev) => ({ ...prev, status: "failed" }));
         setConsoleText(
           `Load failed: ${error.message}${
             error.data ? ` | ${JSON.stringify(error.data)}` : ""
@@ -212,7 +260,7 @@ function TrainModels() {
     return () => {
       cancelled = true;
     };
-  }, [modelType]);
+  }, [modelType, userOutcomes, userMinSeqLen, userMaxSeqLen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -325,12 +373,7 @@ function TrainModels() {
             : `Not enough samples to train (${response?.n_samples ?? 0}).`
         );
       } else if (modelType === "user") {
-        const outcomes =
-          userOutcomes === "all"
-            ? []
-            : userOutcomes === "keep_quarantine"
-            ? ["keep", "quarantine"]
-            : ["keep"];
+        const outcomes = userOutcomesToList(userOutcomes);
         const response = await postJson("/user/train-seq-model", {
           outcomes,
           min_users: userMinUsers,
@@ -344,6 +387,7 @@ function TrainModels() {
         });
         const status = await getJson("/dashboard/status");
         const tempStatus = await getJson("/temp-detector/status");
+        const clusterMap = await getJson(buildUserClusterMapPath(outcomes));
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
           status:
@@ -353,6 +397,17 @@ function TrainModels() {
           sequences: tempStatus?.history?.kept ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
+        setUserClusterMap(
+          clusterMap || {
+            status: "idle",
+            model_version: "v0",
+            n_points: 0,
+            n_clusters: 0,
+            outcome_filter: [],
+            points: [],
+            clusters: [],
+          }
+        );
         setConsoleText(
           response?.status === "trained"
             ? `Training complete. Sequences: ${response?.n_sequences ?? 0}.`
@@ -891,6 +946,10 @@ function TrainModels() {
                     <div className="mt-3 text-xs text-base-content/60">
                       Model version: {userMetrics.version}
                     </div>
+                    <div className="mt-1 text-xs text-base-content/60">
+                      Visualization: {userClusterMap.n_points} sequences across{" "}
+                      {userClusterMap.n_clusters} clusters
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-lg border border-primary/20 bg-base-300/60 p-4">
@@ -940,6 +999,21 @@ function TrainModels() {
                         trees={tempForest?.trees || []}
                         maxDepth={12}
                       />
+                    </div>
+                  ) : modelType === "user" ? (
+                    <div className="h-full min-h-[50vh]">
+                      {userClusterMap.status === "ready" &&
+                      (userClusterMap.points?.length ?? 0) > 0 ? (
+                        <UserSequenceClusterMap mapData={userClusterMap} />
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-base-content/50">
+                          {userClusterMap.status === "failed"
+                            ? "Failed to load user sequence visualization."
+                            : userClusterMap.status === "untrained"
+                            ? "Train User Engine first to unlock sequence cluster map."
+                            : "No user sequences available for current filter."}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="h-full flex items-center justify-center text-base-content/50">
