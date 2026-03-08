@@ -223,6 +223,37 @@ def status():
     )
 
 
+class TempTemplateResponse(BaseModel):
+    template_found: bool
+    user_id: str
+    count: int | None = None
+    feature_order: list[str] | None = None
+    mean: list[float] | None = None
+    variance: list[float] | None = None
+    std: list[float] | None = None
+    updated_at: str | None = None
+
+
+@router.get("/template", response_model=TempTemplateResponse)
+def get_template(user_id: str = Query(..., min_length=1)):
+    tpl = container.temp_baseline_repo.get_template(user_id)
+    if tpl is None:
+        return TempTemplateResponse(
+            template_found=False,
+            user_id=user_id,
+        )
+    return TempTemplateResponse(
+        template_found=True,
+        user_id=user_id,
+        count=int(tpl.get("count", 0)),
+        feature_order=list(container.temp_detector.feature_order),
+        mean=list(tpl.get("mean", [])),
+        variance=list(tpl.get("variance", [])),
+        std=list(tpl.get("std", [])),
+        updated_at=tpl.get("updated_at"),
+    )
+
+
 @router.get("/history")
 def history(user_id: str | None = Query(default=None)):
     rows = (
