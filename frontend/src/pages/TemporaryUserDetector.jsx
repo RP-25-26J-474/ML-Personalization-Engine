@@ -8,7 +8,10 @@ import Accordian from "../components/accordian/Accordian";
 import AnomalyDistribution from "../components/charts/temp-detector/AnomalyDistribution";
 import SimilarityScatter from "../components/charts/temp-detector/SimilarityScatter";
 import HeuristicRadar from "../components/charts/temp-detector/HeuristicRadar";
-import { getJson, postJson } from "../api/MLPEClient";
+import {
+  getTempDetectorHistory,
+  scoreTempDetectorBatches,
+} from "../services/api-services";
 import { formatJson, tryParseJson } from "../utils/json";
 import { appendConsole, demoDelay } from "../utils/demo";
 
@@ -27,11 +30,7 @@ function TemporaryUserDetector() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchHistory = async (userId) => {
-    const response = await getJson(
-      userId
-        ? `/temp-detector/history?user_id=${userId}`
-        : "/temp-detector/history"
-    );
+    const response = await getTempDetectorHistory(userId);
     setHistoryItems(response?.items || []);
   };
 
@@ -57,7 +56,7 @@ function TemporaryUserDetector() {
         payload = { batches: [payload] };
       }
 
-      const response = await postJson("/temp-detector/score-batches", payload);
+      const response = await scoreTempDetectorBatches(payload);
       setKeptItems(response?.kept || []);
       setQuarantinedItems(response?.quarantined || []);
       setRejectedItems(response?.rejected || []);

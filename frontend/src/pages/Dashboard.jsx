@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getJson } from "../api/MLPEClient";
+import { getDashboardStatus } from "../services/api-services";
 
 function Dashboard() {
   const [status, setStatus] = useState(null);
@@ -8,7 +8,7 @@ function Dashboard() {
   useEffect(() => {
     let mounted = true;
 
-    getJson("/dashboard/status")
+    getDashboardStatus()
       .then((data) => {
         if (mounted) {
           setStatus(data);

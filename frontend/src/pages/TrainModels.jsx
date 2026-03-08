@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import CategoryModelVectorSpace from "../components/charts/category-engine/CategoryModelVectorSpace";
-import { getJson, postForm, postJson } from "../api/MLPEClient";
+import {
+  getCategoryVectorSpace3d,
+  getDashboardStatus,
+  getTempDetectorForest,
+  getTempDetectorStatus,
+  getUserClusterMap,
+  trainCategoryWithCsv,
+  trainCategoryWithSynth,
+  trainTempDetectorFromBatches,
+  trainTempDetectorSynth,
+  trainUserSeqModel,
+} from "../services/api-services";
 import IsolationForestTrees from "../components/charts/temp-detector/IsolationForestTrees";
 import UserSequenceClusterMap from "../components/charts/user-engine/UserSequenceClusterMap";
 import Modal from "../components/modals/Modal";
@@ -105,14 +116,6 @@ function TrainModels() {
       ? ["keep", "quarantine"]
       : ["keep"];
 
-  const buildUserClusterMapPath = (outcomes) => {
-    const params = new URLSearchParams();
-    params.set("min_sequence_len", String(userMinSeqLen));
-    params.set("max_sequence_len", String(userMaxSeqLen));
-    outcomes.forEach((outcome) => params.append("outcomes", outcome));
-    return `/user/cluster-map?${params.toString()}`;
-  };
-
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "category") {
@@ -127,7 +130,7 @@ function TrainModels() {
       setConsoleText("Loading existing category vector space...");
       setMetrics((prev) => ({ ...prev, status: "Loading..." }));
       try {
-        const vectorSpace = await getJson("/category/vector-space-3d");
+        const vectorSpace = await getCategoryVectorSpace3d();
         if (cancelled) return;
         setPoints(vectorSpace?.points || []);
         setMetrics((prev) => ({
@@ -168,7 +171,7 @@ function TrainModels() {
     const loadStatus = async () => {
       setConsoleText("Loading temporary detector status...");
       try {
-        const status = await getJson("/temp-detector/status");
+        const status = await getTempDetectorStatus();
         if (cancelled) return;
         setTempMetrics({
           status: status?.model_trained ? "Ready" : "Untrained",
@@ -219,10 +222,14 @@ function TrainModels() {
     const loadUserStatus = async () => {
       setConsoleText("Loading user engine status...");
       try {
-        const status = await getJson("/dashboard/status");
-        const tempStatus = await getJson("/temp-detector/status");
+        const status = await getDashboardStatus();
+        const tempStatus = await getTempDetectorStatus();
         const outcomes = userOutcomesToList(userOutcomes);
-        const clusterMap = await getJson(buildUserClusterMapPath(outcomes));
+        const clusterMap = await getUserClusterMap({
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         if (cancelled) return;
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
@@ -272,7 +279,7 @@ function TrainModels() {
 
     const loadForest = async () => {
       try {
-        const forest = await getJson("/temp-detector/forest?max_trees=12");
+        const forest = await getTempDetectorForest(12);
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
       } catch (error) {
@@ -320,11 +327,11 @@ function TrainModels() {
           }
           const formData = new FormData();
           formData.append("file", categoryCsvFile);
-          response = await postForm("/category/train-csv", formData);
+          response = await trainCategoryWithCsv(formData);
         } else {
-          response = await postJson("/category/train", { n_synth: nSynth });
+          response = await trainCategoryWithSynth(nSynth);
         }
-        const vectorSpace = await getJson("/category/vector-space-3d");
+        const vectorSpace = await getCategoryVectorSpace3d();
         setPoints(vectorSpace?.points || []);
         setMetrics({
           samples: response?.n_samples ?? vectorSpace?.points?.length ?? 0,
@@ -344,17 +351,17 @@ function TrainModels() {
             : ["keep"];
         const response =
           tempOutcomes === "synth"
-            ? await postJson("/temp-detector/train-synth", {
+            ? await trainTempDetectorSynth({
                 n_samples: tempSynthSamples,
                 seed: tempSynthSeed,
               })
-            : await postJson("/temp-detector/train-from-batches", {
+            : await trainTempDetectorFromBatches({
                 user_id: tempUserId || null,
                 outcomes,
                 min_samples: tempMinSamples,
               });
-        const status = await getJson("/temp-detector/status");
-        const forest = await getJson("/temp-detector/forest?max_trees=12");
+        const status = await getTempDetectorStatus();
+        const forest = await getTempDetectorForest(12);
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
@@ -374,7 +381,7 @@ function TrainModels() {
         );
       } else if (modelType === "user") {
         const outcomes = userOutcomesToList(userOutcomes);
-        const response = await postJson("/user/train-seq-model", {
+        const response = await trainUserSeqModel({
           outcomes,
           min_users: userMinUsers,
           min_sequences: userMinSequences,
@@ -385,9 +392,13 @@ function TrainModels() {
           learning_rate: userLearningRate,
           batch_size: userBatchSize,
         });
-        const status = await getJson("/dashboard/status");
-        const tempStatus = await getJson("/temp-detector/status");
-        const clusterMap = await getJson(buildUserClusterMapPath(outcomes));
+        const status = await getDashboardStatus();
+        const tempStatus = await getTempDetectorStatus();
+        const clusterMap = await getUserClusterMap({
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
           status:

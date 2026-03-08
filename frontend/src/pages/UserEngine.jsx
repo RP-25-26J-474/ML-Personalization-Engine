@@ -4,7 +4,11 @@ import OutputSection from "../components/sections/OutputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
 import ProfileDiffHistory from "../components/sections/ProfileDiffHistory";
-import { getJson, postJson } from "../api/MLPEClient";
+import {
+  getUserProfileDiffs,
+  updateUserProfile,
+  updateUserProfileBatch,
+} from "../services/api-services";
 import { formatJson, tryParseJson } from "../utils/json";
 import { appendConsole, demoDelay } from "../utils/demo";
 import { appendStateMachineTraces } from "../utils/traces";
@@ -39,7 +43,7 @@ export default function UserEngine() {
     if (!userId) return;
     setIsHistoryLoading(true);
     try {
-      const response = await getJson(`/data/profile-diffs?user_id=${userId}`);
+      const response = await getUserProfileDiffs(userId);
       setDiffHistory(Array.isArray(response) ? response : []);
       setHistoryUserId(userId);
     } catch (error) {
@@ -63,16 +67,21 @@ export default function UserEngine() {
     }
 
     setIsLoading(true);
-    const endpoint =
-      mode === "batch" ? "/user/update-profile-batch" : "/user/update-profile";
+    const apiCall =
+      mode === "batch" ? updateUserProfileBatch : updateUserProfile;
     setConsoleText("");
     appendConsole(setConsoleText, "Validating interaction payload...");
     await demoDelay();
-    appendConsole(setConsoleText, `Updating user profile via ${endpoint}...`);
+    appendConsole(
+      setConsoleText,
+      `Updating user profile via ${
+        mode === "batch" ? "/user/update-profile-batch" : "/user/update-profile"
+      }...`
+    );
     await demoDelay();
 
     try {
-      const response = await postJson(endpoint, parsed.value);
+      const response = await apiCall(parsed.value);
       setOutputText(formatJson(response));
       if (response?.quarantined || !response?.profile) {
         appendConsole(
