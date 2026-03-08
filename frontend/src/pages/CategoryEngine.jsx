@@ -4,7 +4,10 @@ import OutputSection from "../components/sections/OutputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
 import CategoryNearestNeighbor from "../components/charts/category-engine/CategoryNearestNeighbor";
-import { getJson, postJson } from "../api/MLPEClient";
+import {
+  generateCategoryProfile,
+  getCategoryVectorSpace,
+} from "../services/api-services";
 import { formatJson, tryParseJson } from "../utils/json";
 import { appendConsole, demoDelay } from "../utils/demo";
 import { appendStateMachineTraces } from "../utils/traces";
@@ -32,7 +35,7 @@ export default function CategoryEngine() {
     const loadVectorSpace = async () => {
       setVectorStatus("Loading");
       try {
-        const response = await getJson("/category/vector-space");
+        const response = await getCategoryVectorSpace();
         if (!active) return;
         setVectorPoints(response?.points_2d ?? []);
         setVectorStatus(response?.points_2d?.length ? "Ready" : "Empty");
@@ -66,7 +69,7 @@ export default function CategoryEngine() {
     await demoDelay();
 
     try {
-      const response = await postJson("/category/generate-profile", parsed.value);
+      const response = await generateCategoryProfile(parsed.value);
       setOutputText(formatJson(response));
       const nnDistance = response?.quality?.nearest_neighbor_distance;
       const nnSimilarity = response?.quality?.nearest_neighbor_similarity;
