@@ -390,13 +390,6 @@ class Orchestrator:
 
     def handle_interactions_many(self, batches: list[InteractionBatch]) -> OrchestratorBatchResult:
         traces = TraceBundle()
-        self._sm_init(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=batches[0].user_id,
-            actor="orchestrator",
-            reason="batch_interactions_received",
-        )
 
         kept: list[InteractionBatch] = []
         quarantined_batches: list[dict] = []
@@ -467,38 +460,6 @@ class Orchestrator:
         merged = merge_profiles(category_base, user_res.suggestion_dict)
 
         next_version = (prev.metadata.version + 1) if prev else 1
-        update_entity = f"{user_id}:{next_version}"
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="nightly_eligible",
-            actor="orchestrator",
-            reason="legitimate_batches_available",
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="updating",
-            actor="orchestrator",
-            reason="user_batch_update_started",
-        )
-        self._sm_init(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            actor="orchestrator",
-            reason="profile_update_started",
-        )
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="validated",
-            actor="orchestrator",
-            reason="merge_validated",
-        )
         profile = PersonalizationProfile(
             user_id=user_id,
             metadata=ProfileMetadata(
@@ -511,39 +472,6 @@ class Orchestrator:
         )
 
         self.profiles_repo.save_version(profile)
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="persisted",
-            actor="orchestrator",
-            reason="profile_saved",
-        )
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="activated",
-            actor="orchestrator",
-            reason="profile_activated",
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="active",
-            actor="orchestrator",
-            reason="user_batch_update_completed",
-            metadata={"version": next_version},
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="collecting",
-            actor="orchestrator",
-            reason="resume_collection_after_batch_update",
-        )
         self.traces_repo.save_many(user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())
