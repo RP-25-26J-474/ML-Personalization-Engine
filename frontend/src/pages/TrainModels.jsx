@@ -9,7 +9,6 @@ import {
   getUserClusterMap,
   trainCategoryWithCsv,
   trainCategoryWithSynth,
-  trainTempDetectorFromBatches,
   trainTempDetectorSynth,
   trainUserSeqModel,
 } from "../services/api-services";
@@ -22,9 +21,6 @@ function TrainModels() {
   const [nSynth, setNSynth] = useState(400);
   const [categoryTrainMode, setCategoryTrainMode] = useState("synth");
   const [categoryCsvFile, setCategoryCsvFile] = useState(null);
-  const [tempUserId, setTempUserId] = useState("");
-  const [tempOutcomes, setTempOutcomes] = useState("keep");
-  const [tempMinSamples, setTempMinSamples] = useState(10);
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);
   const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
@@ -176,10 +172,10 @@ function TrainModels() {
         setTempMetrics({
           status: status?.model_trained ? "Ready" : "Untrained",
           version: status?.model_version || "--",
-          total: status?.history?.total ?? 0,
-          kept: status?.history?.kept ?? 0,
-          quarantined: status?.history?.quarantined ?? 0,
-          rejected: status?.history?.rejected ?? 0,
+          total: status?.baselines?.total_samples ?? 0,
+          kept: 0,
+          quarantined: 0,
+          rejected: 0,
           baselines: status?.baselines?.users ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
@@ -235,8 +231,8 @@ function TrainModels() {
         setUserMetrics({
           status: version !== "v0" ? "Ready" : "Untrained",
           version,
-          users: tempStatus?.history?.user_count ?? 0,
-          sequences: tempStatus?.history?.kept ?? 0,
+          users: tempStatus?.baselines?.users ?? 0,
+          sequences: tempStatus?.baselines?.total_samples ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -312,7 +308,7 @@ function TrainModels() {
       setConsoleText("Training User Engine (sequence autoencoder)...");
       setUserMetrics((prev) => ({ ...prev, status: "Training..." }));
     } else {
-      setConsoleText("Training Temporary User Detector from stored batches...");
+      setConsoleText("Training Temporary User Detector from synthetic data...");
       setTempMetrics((prev) => ({ ...prev, status: "Training..." }));
     }
 
@@ -343,33 +339,20 @@ function TrainModels() {
           `Training complete. Samples: ${response?.n_samples ?? nSynth}.`
         );
       } else if (modelType === "temp-detector") {
-        const outcomes =
-          tempOutcomes === "all"
-            ? []
-            : tempOutcomes === "keep_quarantine"
-            ? ["keep", "quarantine"]
-            : ["keep"];
-        const response =
-          tempOutcomes === "synth"
-            ? await trainTempDetectorSynth({
-                n_samples: tempSynthSamples,
-                seed: tempSynthSeed,
-              })
-            : await trainTempDetectorFromBatches({
-                user_id: tempUserId || null,
-                outcomes,
-                min_samples: tempMinSamples,
-              });
+        const response = await trainTempDetectorSynth({
+          n_samples: tempSynthSamples,
+          seed: tempSynthSeed,
+        });
         const status = await getTempDetectorStatus();
         const forest = await getTempDetectorForest(12);
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
-          total: status?.history?.total ?? 0,
-          kept: status?.history?.kept ?? 0,
-          quarantined: status?.history?.quarantined ?? 0,
-          rejected: status?.history?.rejected ?? 0,
+          total: status?.baselines?.total_samples ?? 0,
+          kept: 0,
+          quarantined: 0,
+          rejected: 0,
           baselines: status?.baselines?.users ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
@@ -404,8 +387,8 @@ function TrainModels() {
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version,
-          users: tempStatus?.history?.user_count ?? 0,
-          sequences: tempStatus?.history?.kept ?? 0,
+          users: tempStatus?.baselines?.users ?? 0,
+          sequences: tempStatus?.baselines?.total_samples ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -563,95 +546,41 @@ function TrainModels() {
 
                       {modelType === "temp-detector" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3 flex flex-col gap-3">
+                          <div className="text-xs text-base-content/60">
+                            Template-only mode: training uses synthetic samples.
+                          </div>
                           <div>
                             <div className="text-xs text-base-content/60">
-                              User ID (optional)
+                              Synthetic Samples
                             </div>
                             <input
-                              type="text"
-                              value={tempUserId}
+                              type="number"
+                              min={50}
+                              max={2000}
+                              step={50}
+                              value={tempSynthSamples}
                               onChange={(event) =>
-                                setTempUserId(event.target.value)
+                                setTempSynthSamples(Number(event.target.value))
                               }
                               className="input input-bordered w-full mt-2"
-                              placeholder="u_001"
                             />
                           </div>
                           <div>
                             <div className="text-xs text-base-content/60">
-                              Training Mode
+                              Seed
                             </div>
-                            <select
-                              className="select select-bordered w-full mt-2"
-                              value={tempOutcomes}
+                            <input
+                              type="number"
+                              min={0}
+                              max={9999}
+                              step={1}
+                              value={tempSynthSeed}
                               onChange={(event) =>
-                                setTempOutcomes(event.target.value)
+                                setTempSynthSeed(Number(event.target.value))
                               }
-                            >
-                              <option value="keep">From kept batches</option>
-                              <option value="keep_quarantine">
-                                Keep + Quarantine
-                              </option>
-                              <option value="all">All outcomes</option>
-                              <option value="synth">Synthetic data</option>
-                            </select>
+                              className="input input-bordered w-full mt-2"
+                            />
                           </div>
-                          {tempOutcomes !== "synth" ? (
-                            <div>
-                              <div className="text-xs text-base-content/60">
-                                Min Samples
-                              </div>
-                              <input
-                                type="number"
-                                min={5}
-                                max={1000}
-                                step={5}
-                                value={tempMinSamples}
-                                onChange={(event) =>
-                                  setTempMinSamples(Number(event.target.value))
-                                }
-                                className="input input-bordered w-full mt-2"
-                              />
-                            </div>
-                          ) : null}
-                          {tempOutcomes === "synth" ? (
-                            <>
-                              <div>
-                                <div className="text-xs text-base-content/60">
-                                  Synthetic Samples
-                                </div>
-                                <input
-                                  type="number"
-                                  min={50}
-                                  max={2000}
-                                  step={50}
-                                  value={tempSynthSamples}
-                                  onChange={(event) =>
-                                    setTempSynthSamples(
-                                      Number(event.target.value)
-                                    )
-                                  }
-                                  className="input input-bordered w-full mt-2"
-                                />
-                              </div>
-                              <div>
-                                <div className="text-xs text-base-content/60">
-                                  Seed
-                                </div>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={9999}
-                                  step={1}
-                                  value={tempSynthSeed}
-                                  onChange={(event) =>
-                                    setTempSynthSeed(Number(event.target.value))
-                                  }
-                                  className="input input-bordered w-full mt-2"
-                                />
-                              </div>
-                            </>
-                          ) : null}
                         </div>
                       ) : null}
                       {modelType === "user" ? (
@@ -866,7 +795,7 @@ function TrainModels() {
                           Temporary Detector Status
                         </div>
                         <div className="text-xs text-base-content/60">
-                          Tracks stored batches and model readiness.
+                          Tracks live template stats and model readiness.
                         </div>
                       </div>
                       <div className="text-xs text-base-content/60">
@@ -875,31 +804,13 @@ function TrainModels() {
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Total</div>
+                        <div className="text-base-content/60">Template Samples</div>
                         <div className="text-sm font-semibold">
                           {tempMetrics.total}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Kept</div>
-                        <div className="text-sm font-semibold">
-                          {tempMetrics.kept}
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Quarantined</div>
-                        <div className="text-sm font-semibold">
-                          {tempMetrics.quarantined}
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Rejected</div>
-                        <div className="text-sm font-semibold">
-                          {tempMetrics.rejected}
-                        </div>
-                      </div>
-                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Baselines</div>
+                        <div className="text-base-content/60">Template Users</div>
                         <div className="text-sm font-semibold">
                           {tempMetrics.baselines}
                         </div>

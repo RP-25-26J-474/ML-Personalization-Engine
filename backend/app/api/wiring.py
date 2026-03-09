@@ -63,7 +63,6 @@ def build_container() -> Container:
         traces_repo=traces_repo,
         quarantine_repo=quarantine_repo,
         models_repo=models_repo,
-        temp_batches_repo=temp_batches_repo,
         state_machine_service=state_machine_service,
     )
 

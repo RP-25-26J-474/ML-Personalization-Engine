@@ -64,7 +64,11 @@ class TempBaselineRepo:
         return list(doc.get("mean", []))
 
     def stats(self) -> dict:
-        return {"users": self._col.count_documents({})}
+        users = int(self._col.count_documents({}))
+        pipeline = [{"$group": {"_id": None, "total_samples": {"$sum": "$count"}}}]
+        grouped = list(self._col.aggregate(pipeline))
+        total_samples = int(grouped[0].get("total_samples", 0)) if grouped else 0
+        return {"users": users, "total_samples": total_samples}
 
     def get_template(self, user_id: str) -> dict | None:
         doc = self._col.find_one({"user_id": user_id})

@@ -75,13 +75,6 @@ export function scoreTempDetectorBatches(payload) {
   return postJson("/temp-detector/score-batches", payload);
 }
 
-export function getTempDetectorHistory(userId) {
-  if (userId) {
-    return getJson(`/temp-detector/history?user_id=${encodeURIComponent(userId)}`);
-  }
-  return getJson("/temp-detector/history");
-}
-
 export function getTempDetectorStatus() {
   return getJson("/temp-detector/status");
 }
@@ -92,14 +85,6 @@ export function getTempDetectorForest(maxTrees = 12) {
 
 export function trainTempDetectorSynth(payload) {
   return postJson("/temp-detector/train-synth", payload);
-}
-
-export function trainTempDetectorFromBatches(payload) {
-  return postJson("/temp-detector/train-from-batches", payload);
-}
-
-export function buildTempTemplate(payload) {
-  return postJson("/temp-detector/template/build", payload);
 }
 
 export function getTempTemplate(userId) {
