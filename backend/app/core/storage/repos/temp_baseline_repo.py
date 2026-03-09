@@ -93,3 +93,17 @@ class TempBaselineRepo:
             "std": std,
             "updated_at": str(doc.get("_id").generation_time) if doc.get("_id") else None,
         }
+
+    def set_template(self, user_id: str, count: int, mean: list[float], m2: list[float]) -> None:
+        self._col.update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "user_id": user_id,
+                    "count": int(count),
+                    "mean": list(mean),
+                    "m2": list(m2),
+                }
+            },
+            upsert=True,
+        )

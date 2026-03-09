@@ -234,6 +234,20 @@ class TempTemplateResponse(BaseModel):
     updated_at: str | None = None
 
 
+class BuildTemplateRequest(BaseModel):
+    user_id: str = Field(min_length=1)
+    min_samples: int = 5
+
+
+class BuildTemplateResponse(BaseModel):
+    status: str
+    user_id: str
+    kept_samples: int
+    min_samples: int
+    feature_order: list[str] | None = None
+    template: TempTemplateResponse | None = None
+
+
 @router.get("/template", response_model=TempTemplateResponse)
 def get_template(user_id: str = Query(..., min_length=1)):
     tpl = container.temp_baseline_repo.get_template(user_id)
@@ -251,6 +265,77 @@ def get_template(user_id: str = Query(..., min_length=1)):
         variance=list(tpl.get("variance", [])),
         std=list(tpl.get("std", [])),
         updated_at=tpl.get("updated_at"),
+    )
+
+
+def _aggregate_features(feature_rows: list[list[float]]) -> tuple[int, list[float], list[float]]:
+    if not feature_rows:
+        return 0, [], []
+    dim = len(feature_rows[0])
+    n = 0
+    mean = [0.0 for _ in range(dim)]
+    m2 = [0.0 for _ in range(dim)]
+    for row in feature_rows:
+        if len(row) != dim:
+            continue
+        n += 1
+        for i in range(dim):
+            x = float(row[i])
+            delta = x - mean[i]
+            mean[i] += delta / n
+            delta2 = x - mean[i]
+            m2[i] += delta * delta2
+    return n, mean, m2
+
+
+@router.post("/template/build", response_model=BuildTemplateResponse)
+def build_template(req: BuildTemplateRequest):
+    rows = container.temp_batches_repo.list(req.user_id)
+    kept = [r for r in rows if r.outcome == "keep" and r.features]
+    if len(kept) < req.min_samples:
+        return BuildTemplateResponse(
+            status="not_enough_samples",
+            user_id=req.user_id,
+            kept_samples=len(kept),
+            min_samples=req.min_samples,
+            feature_order=list(container.temp_detector.feature_order),
+            template=None,
+        )
+
+    n, mean, m2 = _aggregate_features([r.features for r in kept])
+    if n < req.min_samples:
+        return BuildTemplateResponse(
+            status="not_enough_samples",
+            user_id=req.user_id,
+            kept_samples=n,
+            min_samples=req.min_samples,
+            feature_order=list(container.temp_detector.feature_order),
+            template=None,
+        )
+
+    container.temp_baseline_repo.set_template(
+        user_id=req.user_id,
+        count=n,
+        mean=mean,
+        m2=m2,
+    )
+    tpl = container.temp_baseline_repo.get_template(req.user_id) or {}
+    return BuildTemplateResponse(
+        status="built",
+        user_id=req.user_id,
+        kept_samples=n,
+        min_samples=req.min_samples,
+        feature_order=list(container.temp_detector.feature_order),
+        template=TempTemplateResponse(
+            template_found=True,
+            user_id=req.user_id,
+            count=int(tpl.get("count", 0)),
+            feature_order=list(container.temp_detector.feature_order),
+            mean=list(tpl.get("mean", [])),
+            variance=list(tpl.get("variance", [])),
+            std=list(tpl.get("std", [])),
+            updated_at=tpl.get("updated_at"),
+        ),
     )
 
 
