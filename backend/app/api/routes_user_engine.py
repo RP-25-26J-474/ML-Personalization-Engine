@@ -1,13 +1,17 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 import numpy as np
+from importlib import import_module
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch, InteractionBatchList
-from app.core.engine.user_engine import seq_autoencoder
 from app.core.utils.time import now_iso
 
 router = APIRouter()
+
+
+def _seq_autoencoder():
+    return import_module("app.core.engine.user_engine.seq_autoencoder")
 
 
 class UserUpdateResponse(BaseModel):
@@ -131,6 +135,7 @@ def update_profile_batch(payload: InteractionBatchList):
     description="Trains the GRU autoencoder + clustering bundle used for user behavior sequence personalization.",
 )
 def train_seq_model(req: TrainSeqModelRequest):
+    seq_autoencoder = _seq_autoencoder()
     rows = container.temp_batches_repo.list_all()
     if req.outcomes:
         rows = [row for row in rows if row.outcome in set(req.outcomes)]
@@ -216,6 +221,7 @@ def user_cluster_map(
     min_sequence_len: int = 2,
     max_sequence_len: int = 20,
 ):
+    seq_autoencoder = _seq_autoencoder()
     bundle = container.user_engine._seq_bundle
     model_version = container.models_repo.user_seq_model_version
     if bundle is None:

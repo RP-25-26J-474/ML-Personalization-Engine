@@ -10,7 +10,7 @@ import {
   updateUserProfileBatch,
 } from "../services/api-services";
 import { formatJson, tryParseJson } from "../utils/json";
-import { appendConsole, demoDelay } from "../utils/demo";
+import { appendConsole } from "../utils/demo";
 import { appendStateMachineTraces } from "../utils/traces";
 
 import {
@@ -71,14 +71,12 @@ export default function UserEngine() {
       mode === "batch" ? updateUserProfileBatch : updateUserProfile;
     setConsoleText("");
     appendConsole(setConsoleText, "Validating interaction payload...");
-    await demoDelay();
     appendConsole(
       setConsoleText,
       `Updating user profile via ${
         mode === "batch" ? "/user/update-profile-batch" : "/user/update-profile"
       }...`
     );
-    await demoDelay();
 
     try {
       const response = await apiCall(parsed.value);
@@ -102,8 +100,7 @@ export default function UserEngine() {
       const userId = extractUserId(parsed.value);
       if (userId) {
         appendConsole(setConsoleText, "Loading profile diff history...");
-        await demoDelay();
-        await fetchHistory(userId);
+        void fetchHistory(userId);
       }
     } catch (error) {
       setOutputText("");
