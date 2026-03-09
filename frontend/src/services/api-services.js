@@ -98,6 +98,14 @@ export function trainTempDetectorFromBatches(payload) {
   return postJson("/temp-detector/train-from-batches", payload);
 }
 
+export function buildTempTemplate(payload) {
+  return postJson("/temp-detector/template/build", payload);
+}
+
+export function getTempTemplate(userId) {
+  return getJson(`/temp-detector/template?user_id=${encodeURIComponent(userId)}`);
+}
+
 export function updateUserProfile(payload) {
   return postJson("/user/update-profile", payload);
 }
