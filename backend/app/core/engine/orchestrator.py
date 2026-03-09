@@ -21,7 +21,6 @@ from app.core.engine.merge.diff import diff_profiles
 
 from app.core.storage.repos.profiles_repo import ProfilesRepo
 from app.core.storage.repos.traces_repo import TracesRepo
-from app.core.storage.repos.quarantine_repo import QuarantineRepo, QuarantineRow
 from app.core.storage.repos.models_repo import ModelsRepo
 from app.core.state_machine.service import StateMachineService
 from app.core.state_machine.definitions import (
@@ -59,7 +58,6 @@ class Orchestrator:
         user_engine: UserEngineService,
         profiles_repo: ProfilesRepo,
         traces_repo: TracesRepo,
-        quarantine_repo: QuarantineRepo,
         models_repo: ModelsRepo,
         state_machine_service: StateMachineService,
     ):
@@ -69,7 +67,6 @@ class Orchestrator:
 
         self.profiles_repo = profiles_repo
         self.traces_repo = traces_repo
-        self.quarantine_repo = quarantine_repo
         self.models_repo = models_repo
         self.state_machine = state_machine_service
 
@@ -262,15 +259,6 @@ class Orchestrator:
             self.temp_detector.update_baseline(batch.user_id, filt.features)
 
         if filt.is_quarantined:
-            self.quarantine_repo.add(
-                QuarantineRow(
-                    user_id=batch.user_id,
-                    batch_id=batch.batch_id,
-                    reason=filt.reason or "unknown",
-                    anomaly_score=filt.anomaly_score,
-                    payload=batch.model_dump(),
-                )
-            )
             self.traces_repo.save_many(batch.user_id, traces.traces)
             return OrchestratorResult(
                 profile=None,
@@ -413,7 +401,6 @@ class Orchestrator:
         kept: list[InteractionBatch] = []
         quarantined_batches: list[dict] = []
         rejected_batches: list[dict] = []
-        quarantine_rows: list[QuarantineRow] = []
 
         for batch in batches:
             filt = self.temp_detector.score_batch(batch)
@@ -423,16 +410,6 @@ class Orchestrator:
                 self.temp_detector.update_baseline(batch.user_id, filt.features)
 
             if filt.is_quarantined:
-                batch_payload = batch.model_dump()
-                quarantine_rows.append(
-                    QuarantineRow(
-                        user_id=batch.user_id,
-                        batch_id=batch.batch_id,
-                        reason=filt.reason or "unknown",
-                        anomaly_score=filt.anomaly_score,
-                        payload=batch_payload,
-                    )
-                )
                 row = {
                     "batch_id": batch.batch_id,
                     "outcome": filt.outcome,
@@ -445,8 +422,6 @@ class Orchestrator:
                     quarantined_batches.append(row)
             else:
                 kept.append(batch)
-
-        self.quarantine_repo.add_many(quarantine_rows)
 
         if not kept:
             self.traces_repo.save_many(batches[0].user_id, traces.traces)
