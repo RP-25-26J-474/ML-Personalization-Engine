@@ -469,6 +469,7 @@ class Orchestrator:
         kept: list[InteractionBatch] = []
         quarantined_batches: list[dict] = []
         rejected_batches: list[dict] = []
+        temp_rows: list[TempBatchRecord] = []
 
         for batch in batches:
             batch_entity = self._batch_entity_id(batch.user_id, batch.batch_id)
@@ -489,21 +490,22 @@ class Orchestrator:
             )
             filt = self.temp_detector.score_batch(batch)
             traces.add(filt.trace)
+            batch_payload = batch.model_dump()
 
-            self.temp_batches_repo.add(
-                TempBatchRecord(
-                    user_id=batch.user_id,
-                    batch_id=batch.batch_id,
-                    captured_at=batch.captured_at,
-                    outcome=filt.outcome,
-                    anomaly_score=filt.anomaly_score,
-                    similarity_score=filt.similarity_score,
-                    heuristic_components=filt.heuristic_components,
-                    features=filt.features,
-                    payload=batch.model_dump(),
-                )
-            )
             if filt.outcome == "keep":
+                temp_rows.append(
+                    TempBatchRecord(
+                        user_id=batch.user_id,
+                        batch_id=batch.batch_id,
+                        captured_at=batch.captured_at,
+                        outcome=filt.outcome,
+                        anomaly_score=filt.anomaly_score,
+                        similarity_score=filt.similarity_score,
+                        heuristic_components=filt.heuristic_components,
+                        features=filt.features,
+                        payload=batch_payload,
+                    )
+                )
                 self.temp_detector.update_baseline(batch.user_id, filt.features)
                 self._sm_transition(
                     traces,
@@ -532,7 +534,7 @@ class Orchestrator:
                         batch_id=batch.batch_id,
                         reason=filt.reason or "unknown",
                         anomaly_score=filt.anomaly_score,
-                        payload=batch.model_dump(),
+                        payload=batch_payload,
                     )
                 )
                 row = {
@@ -547,6 +549,8 @@ class Orchestrator:
                     quarantined_batches.append(row)
             else:
                 kept.append(batch)
+
+        self.temp_batches_repo.add_many(temp_rows)
 
         if not kept:
             self.traces_repo.save_many(batches[0].user_id, traces.traces)
