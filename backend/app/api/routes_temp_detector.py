@@ -23,7 +23,12 @@ class TempScoreResponse(BaseModel):
     trace: dict
 
 
-@router.post("/score-batch", response_model=TempScoreResponse)
+@router.post(
+    "/score-batch",
+    response_model=TempScoreResponse,
+    summary="Score one interaction batch",
+    description="Computes anomaly/similarity signals and returns keep, quarantine, or reject outcome.",
+)
 def score_batch(batch: InteractionBatch):
     res = container.temp_detector.score_batch(batch)
     container.temp_batches_repo.add(
@@ -57,7 +62,9 @@ def score_batch(batch: InteractionBatch):
 
 class TrainGlobalRequest(BaseModel):
     # For demo: accept feature vectors directly
-    feature_matrix: list[list[float]]
+    feature_matrix: list[list[float]] = Field(
+        description="Matrix of detector feature vectors used to train the global anomaly model."
+    )
 
 
 class TempScoreItem(BaseModel):
@@ -75,7 +82,9 @@ class TempScoreItem(BaseModel):
 
 
 class TempScoreBatchesRequest(BaseModel):
-    batches: list[InteractionBatch]
+    batches: list[InteractionBatch] = Field(
+        description="List of interaction batches to score in one request."
+    )
 
 
 class TempScoreBatchesResponse(BaseModel):
@@ -85,7 +94,12 @@ class TempScoreBatchesResponse(BaseModel):
     rejected: list[TempScoreItem]
 
 
-@router.post("/score-batches", response_model=TempScoreBatchesResponse)
+@router.post(
+    "/score-batches",
+    response_model=TempScoreBatchesResponse,
+    summary="Score multiple interaction batches",
+    description="Scores many batches in one call and groups results by outcome type.",
+)
 def score_batches(req: TempScoreBatchesRequest):
     results = container.temp_detector.score_batches(req.batches)
     kept: list[TempScoreItem] = []
@@ -146,7 +160,11 @@ def score_batches(req: TempScoreBatchesRequest):
     )
 
 
-@router.post("/train-global")
+@router.post(
+    "/train-global",
+    summary="Train global anomaly model",
+    description="Trains the temp-detector model from explicit feature vectors.",
+)
 def train_global(req: TrainGlobalRequest):
     X = np.array(req.feature_matrix, dtype=float)
     container.temp_detector.train_global(X)
@@ -158,11 +176,15 @@ def train_global(req: TrainGlobalRequest):
 
 
 class TrainFromSynthRequest(BaseModel):
-    n_samples: int = 400
-    seed: int = 42
+    n_samples: int = Field(default=400, description="Number of synthetic rows to generate.")
+    seed: int = Field(default=42, description="Random seed for deterministic synthetic training data.")
 
 
-@router.post("/train-synth")
+@router.post(
+    "/train-synth",
+    summary="Train anomaly model from synthetic data",
+    description="Generates synthetic detector features and retrains the global anomaly model.",
+)
 def train_synth(req: TrainFromSynthRequest):
     n_samples = container.temp_detector.train_from_synth(n=req.n_samples, seed=req.seed)
     trained_at = now_iso()
@@ -173,12 +195,21 @@ def train_synth(req: TrainFromSynthRequest):
 
 
 class TrainFromBatchesRequest(BaseModel):
-    user_id: str | None = None
-    outcomes: list[str] = Field(default_factory=lambda: ["keep"])
-    min_samples: int = 10
+    user_id: str | None = Field(
+        default=None, description="Optional user filter; uses all users when omitted."
+    )
+    outcomes: list[str] = Field(
+        default_factory=lambda: ["keep"],
+        description="Outcome labels to include when selecting stored batches.",
+    )
+    min_samples: int = Field(default=10, description="Minimum required sample count before training.")
 
 
-@router.post("/train-from-batches")
+@router.post(
+    "/train-from-batches",
+    summary="Train anomaly model from stored batches",
+    description="Retrains the detector using historical scored batches filtered by user and outcome.",
+)
 def train_from_batches(req: TrainFromBatchesRequest):
     rows = (
         container.temp_batches_repo.list(req.user_id)
@@ -212,7 +243,12 @@ class TempDetectorStatus(BaseModel):
     feature_order: list[str]
 
 
-@router.get("/status", response_model=TempDetectorStatus)
+@router.get(
+    "/status",
+    response_model=TempDetectorStatus,
+    summary="Get temp-detector status",
+    description="Returns detector training status, model version, history stats, and per-user baseline stats.",
+)
 def status():
     return TempDetectorStatus(
         model_trained=container.temp_detector.model is not None,
@@ -235,8 +271,10 @@ class TempTemplateResponse(BaseModel):
 
 
 class BuildTemplateRequest(BaseModel):
-    user_id: str = Field(min_length=1)
-    min_samples: int = 5
+    user_id: str = Field(
+        min_length=1, description="User identifier to build or refresh a baseline template."
+    )
+    min_samples: int = Field(default=5, description="Minimum kept batch count needed to build template.")
 
 
 class BuildTemplateResponse(BaseModel):
@@ -248,7 +286,12 @@ class BuildTemplateResponse(BaseModel):
     template: TempTemplateResponse | None = None
 
 
-@router.get("/template", response_model=TempTemplateResponse)
+@router.get(
+    "/template",
+    response_model=TempTemplateResponse,
+    summary="Get user baseline template",
+    description="Fetches an existing baseline template for the target user, if available.",
+)
 def get_template(user_id: str = Query(..., min_length=1)):
     tpl = container.temp_baseline_repo.get_template(user_id)
     if tpl is None:
@@ -288,7 +331,12 @@ def _aggregate_features(feature_rows: list[list[float]]) -> tuple[int, list[floa
     return n, mean, m2
 
 
-@router.post("/template/build", response_model=BuildTemplateResponse)
+@router.post(
+    "/template/build",
+    response_model=BuildTemplateResponse,
+    summary="Build user baseline template",
+    description="Builds baseline mean/variance statistics from kept historical batches for a user.",
+)
 def build_template(req: BuildTemplateRequest):
     rows = container.temp_batches_repo.list(req.user_id)
     kept = [r for r in rows if r.outcome == "keep" and r.features]
@@ -339,7 +387,11 @@ def build_template(req: BuildTemplateRequest):
     )
 
 
-@router.get("/history")
+@router.get(
+    "/history",
+    summary="Get scoring history",
+    description="Returns persisted temp-detector scoring records and original batch payloads.",
+)
 def history(user_id: str | None = Query(default=None)):
     rows = (
         container.temp_batches_repo.list(user_id)
@@ -394,7 +446,11 @@ def _serialize_tree(estimator, feature_names: list[str]) -> dict:
     }
 
 
-@router.get("/forest")
+@router.get(
+    "/forest",
+    summary="Inspect trained forest",
+    description="Serializes a subset of isolation-forest trees for debugging and visualization.",
+)
 def forest(max_trees: int = Query(default=3, ge=1, le=20)):
     model = container.temp_detector.model
     if model is None:

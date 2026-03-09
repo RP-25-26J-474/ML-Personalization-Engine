@@ -29,17 +29,20 @@ class UserUpdateBatchResponse(BaseModel):
 
 
 class TrainSeqModelRequest(BaseModel):
-    outcomes: list[str] = Field(default_factory=lambda: ["keep"])
-    min_users: int = 5
-    min_sequences: int = 20
-    min_sequence_len: int = 2
-    max_sequence_len: int = 20
-    embedding_dim: int = 16
-    n_clusters: int | None = None
-    epochs: int = 30
-    learning_rate: float = 1e-3
-    batch_size: int = 16
-    seed: int = 42
+    outcomes: list[str] = Field(
+        default_factory=lambda: ["keep"],
+        description="Outcome labels included when building training sequences.",
+    )
+    min_users: int = Field(default=5, description="Minimum users required to start sequence training.")
+    min_sequences: int = Field(default=20, description="Minimum sequence count required to train.")
+    min_sequence_len: int = Field(default=2, description="Minimum batches per user sequence.")
+    max_sequence_len: int = Field(default=20, description="Maximum batches retained per user sequence.")
+    embedding_dim: int = Field(default=16, description="Latent embedding size for sequence encoder.")
+    n_clusters: int | None = Field(default=None, description="Optional explicit KMeans cluster count.")
+    epochs: int = Field(default=30, description="Training epochs for the autoencoder.")
+    learning_rate: float = Field(default=1e-3, description="Optimizer learning rate.")
+    batch_size: int = Field(default=16, description="Mini-batch size used in sequence model training.")
+    seed: int = Field(default=42, description="Random seed for reproducible training.")
 
 
 class TrainSeqModelResponse(BaseModel):
@@ -75,7 +78,14 @@ class UserClusterMapResponse(BaseModel):
     clusters: list[UserClusterSummary]
 
 
-@router.post("/update-profile", response_model=UserUpdateResponse)
+@router.post(
+    "/update-profile",
+    response_model=UserUpdateResponse,
+    summary="Update profile from one batch",
+    description=(
+        "Processes one interaction batch through temp-detector gating and user personalization updates."
+    ),
+)
 def update_profile(batch: InteractionBatch):
     out = container.orchestrator.handle_interactions(batch)
     return UserUpdateResponse(
@@ -87,7 +97,12 @@ def update_profile(batch: InteractionBatch):
     )
 
 
-@router.post("/update-profile-batch", response_model=UserUpdateBatchResponse)
+@router.post(
+    "/update-profile-batch",
+    response_model=UserUpdateBatchResponse,
+    summary="Update profile from many batches",
+    description="Processes a same-user batch list and returns merged profile updates and gating outcomes.",
+)
 def update_profile_batch(payload: InteractionBatchList):
     batches = payload.batches
     if not batches:
@@ -109,7 +124,12 @@ def update_profile_batch(payload: InteractionBatchList):
     )
 
 
-@router.post("/train-seq-model", response_model=TrainSeqModelResponse)
+@router.post(
+    "/train-seq-model",
+    response_model=TrainSeqModelResponse,
+    summary="Train user sequence model",
+    description="Trains the GRU autoencoder + clustering bundle used for user behavior sequence personalization.",
+)
 def train_seq_model(req: TrainSeqModelRequest):
     rows = container.temp_batches_repo.list_all()
     if req.outcomes:
@@ -185,7 +205,12 @@ def _project_to_2d(embeddings: np.ndarray) -> np.ndarray:
     return projected[:, :2]
 
 
-@router.get("/cluster-map", response_model=UserClusterMapResponse)
+@router.get(
+    "/cluster-map",
+    response_model=UserClusterMapResponse,
+    summary="Get user cluster map",
+    description="Returns 2D projected user embeddings, predicted clusters, and cluster-level summary metrics.",
+)
 def user_cluster_map(
     outcomes: list[str] = Query(default=[]),
     min_sequence_len: int = 2,

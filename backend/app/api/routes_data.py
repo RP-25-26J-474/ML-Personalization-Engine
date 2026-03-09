@@ -6,19 +6,31 @@ from app.core.state_machine.definitions import MACHINES
 router = APIRouter()
 
 
-@router.get("/profiles")
+@router.get(
+    "/profiles",
+    summary="List profile versions",
+    description="Returns all stored profile versions for a user ordered by persistence sequence.",
+)
 def list_profiles(user_id: str):
     versions = container.profiles_repo.list_versions(user_id)
     return [p.model_dump() for p in versions]
 
 
-@router.get("/traces")
+@router.get(
+    "/traces",
+    summary="List decision traces",
+    description="Returns trace records captured during category and user-engine personalization decisions.",
+)
 def list_traces(user_id: str):
     traces = container.traces_repo.list(user_id)
     return [t.model_dump() for t in traces]
 
 
-@router.get("/quarantine")
+@router.get(
+    "/quarantine",
+    summary="List quarantined batches",
+    description="Returns interaction batches quarantined or rejected by the temporary user detector.",
+)
 def list_quarantine(user_id: str):
     rows = container.quarantine_repo.list(user_id)
     return [
@@ -33,7 +45,11 @@ def list_quarantine(user_id: str):
     ]
 
 
-@router.get("/profile-diffs")
+@router.get(
+    "/profile-diffs",
+    summary="List profile change history",
+    description="Computes version-to-version profile diffs to show exactly which knobs changed over time.",
+)
 def list_profile_diffs(user_id: str):
     versions = container.profiles_repo.list_versions(user_id)
     if not versions:
@@ -67,7 +83,11 @@ def list_profile_diffs(user_id: str):
     return history
 
 
-@router.get("/current-profile")
+@router.get(
+    "/current-profile",
+    summary="Get current profile",
+    description="Fetches the latest personalization profile for a user.",
+)
 def get_current_profile(user_id: str):
     current = container.profiles_repo.get_current(user_id)
     if current is None:
@@ -75,7 +95,11 @@ def get_current_profile(user_id: str):
     return current
 
 
-@router.get("/state/current")
+@router.get(
+    "/state/current",
+    summary="Get state machine current state",
+    description="Returns the active state for a specific machine/entity pair.",
+)
 def get_state_current(machine: str, entity_id: str):
     if machine not in MACHINES:
         raise HTTPException(status_code=400, detail=f"unknown machine: {machine}")
@@ -88,7 +112,11 @@ def get_state_current(machine: str, entity_id: str):
     return {"machine": machine, "entity_id": entity_id, "state": state}
 
 
-@router.get("/state/transitions")
+@router.get(
+    "/state/transitions",
+    summary="List state transitions",
+    description="Returns recent state transition events for a machine/entity pair.",
+)
 def list_state_transitions(machine: str, entity_id: str, limit: int = 200):
     if machine not in MACHINES:
         raise HTTPException(status_code=400, detail=f"unknown machine: {machine}")
