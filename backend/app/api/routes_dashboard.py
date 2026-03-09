@@ -4,7 +4,14 @@ from app.api.wiring import container
 router = APIRouter()
 
 
-@router.get("/status")
+@router.get(
+    "/status",
+    summary="Get dashboard status",
+    description=(
+        "Returns model versions, engine health checks, training metadata, and aggregate data counts "
+        "used by the demo dashboard."
+    ),
+)
 def status():
     profiles_repo = container.profiles_repo
     models_repo = container.models_repo

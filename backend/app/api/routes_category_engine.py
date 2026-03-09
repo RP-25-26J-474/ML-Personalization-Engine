@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 import csv
 from io import StringIO
 import numpy as np
@@ -16,13 +16,22 @@ PROFILE_FIELDS = list(ProfileKnobs.model_fields.keys())
 
 
 class CategoryResponse(BaseModel):
+    """Cold-start personalization output generated from onboarding signals."""
     profile: dict
     diff: dict
     traces: list[dict]
     quality: dict
 
 
-@router.post("/generate-profile", response_model=CategoryResponse)
+@router.post(
+    "/generate-profile",
+    response_model=CategoryResponse,
+    summary="Generate category profile",
+    description=(
+        "Runs the cold-start category engine using onboarding impairment probabilities and returns "
+        "a candidate profile, profile diff, decision traces, and quality metadata."
+    ),
+)
 def generate_profile(payload: OnboardingResult):
     out = container.orchestrator.handle_onboarding(payload)
     return CategoryResponse(
@@ -34,10 +43,17 @@ def generate_profile(payload: OnboardingResult):
 
 
 class TrainCategoryRequest(BaseModel):
-    n_synth: int = 400
+    n_synth: int = Field(
+        default=400,
+        description="Number of synthetic samples to generate for training.",
+    )
 
 
-@router.post("/train")
+@router.post(
+    "/train",
+    summary="Train category engine from synthetic data",
+    description="Retrains the category KNN model using generated synthetic onboarding samples.",
+)
 def train_category(req: TrainCategoryRequest):
     container.category_engine.train_from_synth(n=req.n_synth)
     trained_at = now_iso()
@@ -53,8 +69,22 @@ def train_category(req: TrainCategoryRequest):
     }
 
 
-@router.post("/train-csv")
-async def train_category_csv(file: UploadFile = File(...)):
+@router.post(
+    "/train-csv",
+    summary="Train category engine from CSV",
+    description=(
+        "Retrains the category KNN model from uploaded CSV rows containing onboarding features and "
+        "target profile knobs."
+    ),
+)
+async def train_category_csv(
+    file: UploadFile = File(
+        ...,
+        description=(
+            "UTF-8 CSV with required columns: onboarding features in FEATURE_ORDER and all ProfileKnobs fields."
+        ),
+    )
+):
     raw = await file.read()
     if not raw:
         raise HTTPException(status_code=400, detail="CSV upload is empty.")
@@ -141,7 +171,12 @@ class VectorSpaceResponse(BaseModel):
     feature_order: list[str]
 
 
-@router.get("/vector-space", response_model=VectorSpaceResponse)
+@router.get(
+    "/vector-space",
+    response_model=VectorSpaceResponse,
+    summary="Get 2D vector-space projection",
+    description="Returns a 2D UMAP projection of category-engine feature vectors for visualization.",
+)
 def vector_space():
     artifacts = container.category_engine.get_artifacts(n=400)
 
@@ -162,7 +197,12 @@ class VectorSpace3DResponse(BaseModel):
     feature_order: list[str]
 
 
-@router.get("/vector-space-3d", response_model=VectorSpace3DResponse)
+@router.get(
+    "/vector-space-3d",
+    response_model=VectorSpace3DResponse,
+    summary="Get 3D vector-space projection",
+    description="Returns a 3D UMAP projection with per-point features and generated profiles.",
+)
 def vector_space_3d():
     artifacts = container.category_engine.get_artifacts(n=400)
 

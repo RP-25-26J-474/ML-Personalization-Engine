@@ -16,9 +16,39 @@ from app.api.routes_data import router as data_router
 def create_app() -> FastAPI:
     setup_logging()
 
+    openapi_tags = [
+        {
+            "name": "dashboard",
+            "description": "Operational overview for model versions, health checks, and dataset counts.",
+        },
+        {
+            "name": "temp-detector",
+            "description": "Temporary user detector APIs for anomaly scoring, template management, and model training.",
+        },
+        {
+            "name": "category",
+            "description": "Cold-start category engine APIs for onboarding-based profile generation and training.",
+        },
+        {
+            "name": "user",
+            "description": "User-wise personalization APIs for profile updates and sequence-model analytics.",
+        },
+        {
+            "name": "data",
+            "description": "Read-only APIs for profile history, traces, quarantine records, and state machine events.",
+        },
+    ]
+
     app = FastAPI(
         title="ML Personalization Engine (MLPE)",
         version="0.1.0",
+        description=(
+            "MLPE combines a temporary-user detector, a category cold-start engine, and a "
+            "continuous user personalization engine. Use the category endpoints for onboarding "
+            "profiles, temp-detector endpoints to filter low-quality interaction batches, and "
+            "user endpoints to update long-term profiles from accepted interactions."
+        ),
+        openapi_tags=openapi_tags,
         debug=settings.DEBUG,
     )
 
@@ -40,7 +70,12 @@ def create_app() -> FastAPI:
     async def handle_state_machine_error(_: Request, exc: StateMachineError):
         return JSONResponse(status_code=exc.status_code, content=exc.to_response())
 
-    @app.get("/health")
+    @app.get(
+        "/health",
+        tags=["dashboard"],
+        summary="Service health check",
+        description="Lightweight liveness check for API and orchestrator startup.",
+    )
     def health():
         return {"status": "ok"}
 
