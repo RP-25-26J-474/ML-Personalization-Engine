@@ -228,22 +228,6 @@ class TempTemplateResponse(BaseModel):
     updated_at: str | None = None
 
 
-class BuildTemplateRequest(BaseModel):
-    user_id: str = Field(
-        min_length=1, description="User identifier to build or refresh a baseline template."
-    )
-    min_samples: int = Field(default=5, description="Minimum kept batch count needed to build template.")
-
-
-class BuildTemplateResponse(BaseModel):
-    status: str
-    user_id: str
-    kept_samples: int
-    min_samples: int
-    feature_order: list[str] | None = None
-    template: TempTemplateResponse | None = None
-
-
 @router.get(
     "/template",
     response_model=TempTemplateResponse,
@@ -267,57 +251,6 @@ def get_template(user_id: str = Query(..., min_length=1)):
         std=list(tpl.get("std", [])),
         updated_at=tpl.get("updated_at"),
     )
-
-
-@router.post(
-    "/template/build",
-    response_model=BuildTemplateResponse,
-    summary="Build user baseline template",
-    description="Builds baseline mean/variance statistics from kept historical batches for a user.",
-)
-def build_template(req: BuildTemplateRequest):
-    tpl = container.temp_baseline_repo.get_template(req.user_id)
-    kept_samples = int(tpl.get("count", 0)) if tpl else 0
-    if tpl is None or kept_samples < req.min_samples:
-        return BuildTemplateResponse(
-            status="not_enough_samples",
-            user_id=req.user_id,
-            kept_samples=kept_samples,
-            min_samples=req.min_samples,
-            feature_order=list(container.temp_detector.feature_order),
-            template=None,
-        )
-    tpl = tpl or {}
-    return BuildTemplateResponse(
-        status="built",
-        user_id=req.user_id,
-        kept_samples=kept_samples,
-        min_samples=req.min_samples,
-        feature_order=list(container.temp_detector.feature_order),
-        template=TempTemplateResponse(
-            template_found=True,
-            user_id=req.user_id,
-            count=int(tpl.get("count", 0)),
-            feature_order=list(container.temp_detector.feature_order),
-            mean=list(tpl.get("mean", [])),
-            variance=list(tpl.get("variance", [])),
-            std=list(tpl.get("std", [])),
-            updated_at=tpl.get("updated_at"),
-        ),
-    )
-
-
-@router.get(
-    "/history",
-    summary="Get scoring history",
-    description="Returns persisted temp-detector scoring records and original batch payloads.",
-)
-def history(user_id: str | None = Query(default=None)):
-    return {
-        "user_id": user_id,
-        "total": 0,
-        "items": [],
-    }
 
 
 def _serialize_tree(estimator, feature_names: list[str]) -> dict:
