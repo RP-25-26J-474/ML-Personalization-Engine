@@ -7,6 +7,7 @@ import {
   getTempTemplate,
 } from "../services/api-services";
 import ProfileKnobChangeChart from "../components/charts/user-engine/ProfileKnobChangeChart";
+import TempTemplateVectorChart from "../components/charts/temp-detector/TempTemplateVectorChart";
 import { formatJson } from "../utils/json";
 
 function AdminUserProfile() {
@@ -174,6 +175,10 @@ function AdminUserProfile() {
               profile={data.currentProfile?.profile}
               profileChanges={data.currentProfile?.profile_changes}
             />
+          </InfoCard>
+
+          <InfoCard title="Temp Template Vector" loading={loading}>
+            <TempTemplateVectorChart template={data.tempTemplate} />
           </InfoCard>
         </div>
       </div>
