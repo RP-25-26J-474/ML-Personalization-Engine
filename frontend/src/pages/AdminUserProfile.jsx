@@ -170,7 +170,10 @@ function AdminUserProfile() {
           </div>
 
           <InfoCard title="Profile Knob Change Chart" loading={loading}>
-            <ProfileKnobChangeChart profile={data.currentProfile?.profile} />
+            <ProfileKnobChangeChart
+              profile={data.currentProfile?.profile}
+              profileChanges={data.currentProfile?.profile_changes}
+            />
           </InfoCard>
         </div>
       </div>

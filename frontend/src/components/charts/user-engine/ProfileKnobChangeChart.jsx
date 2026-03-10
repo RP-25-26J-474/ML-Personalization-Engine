@@ -8,16 +8,32 @@ const KNOB_CONFIG = [
   { key: "element_padding_y", label: "Pad Y", min: 0, max: 24, color: "bg-error" },
 ];
 
-export default function ProfileKnobChangeChart({ profile }) {
+function formatValue(value) {
+  if (typeof value !== "number") {
+    return "--";
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+export default function ProfileKnobChangeChart({ profile, profileChanges }) {
   const rows = KNOB_CONFIG.map((item) => {
     const value = typeof profile?.[item.key] === "number" ? profile[item.key] : null;
     const normalized =
       value == null ? 0 : Math.max(0, Math.min(1, (value - item.min) / (item.max - item.min)));
+    const oldValue =
+      typeof profileChanges?.old?.[item.key] === "number" ? profileChanges.old[item.key] : null;
+    const newValue =
+      typeof profileChanges?.new?.[item.key] === "number" ? profileChanges.new[item.key] : null;
+    const delta =
+      oldValue != null && newValue != null ? Number((newValue - oldValue).toFixed(2)) : null;
 
     return {
       ...item,
       value,
       normalized,
+      oldValue,
+      delta,
     };
   });
 
@@ -32,8 +48,33 @@ export default function ProfileKnobChangeChart({ profile }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((row) => (
           <div key={row.key} className="rounded-xl border border-primary/10 bg-base-100 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-base-content/50">{row.label}</div>
-            <div className="mt-1 text-lg font-semibold">{row.value ?? "--"}</div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] uppercase tracking-wide text-base-content/50">
+                  {row.label}
+                </div>
+                <div className="mt-1 text-lg font-semibold">{formatValue(row.value)}</div>
+              </div>
+              {row.delta != null ? (
+                <span
+                  className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                    row.delta > 0
+                      ? "bg-success/15 text-success"
+                      : row.delta < 0
+                        ? "bg-error/15 text-error"
+                        : "bg-base-300 text-base-content/60"
+                  }`}
+                >
+                  {row.delta > 0 ? "+" : ""}
+                  {formatValue(row.delta)}
+                </span>
+              ) : null}
+            </div>
+            {row.oldValue != null ? (
+              <div className="mt-1 text-xs text-base-content/50">
+                Was {formatValue(row.oldValue)}
+              </div>
+            ) : null}
             <div className="mt-1 text-xs text-base-content/50">
               Range: {row.min} to {row.max}
             </div>
@@ -59,7 +100,21 @@ export default function ProfileKnobChangeChart({ profile }) {
                 </div>
               </div>
               <div className="text-right text-xs font-medium text-base-content/70">
-                {row.value ?? "--"}
+                <div>{formatValue(row.value)}</div>
+                {row.delta != null ? (
+                  <div
+                    className={
+                      row.delta > 0
+                        ? "text-success"
+                        : row.delta < 0
+                          ? "text-error"
+                          : "text-base-content/50"
+                    }
+                  >
+                    {row.delta > 0 ? "+" : ""}
+                    {formatValue(row.delta)}
+                  </div>
+                ) : null}
               </div>
             </div>
           ))}
