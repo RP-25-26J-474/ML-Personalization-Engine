@@ -4,25 +4,7 @@ import { logos } from "../assets";
 import ThemeButton from "../components/common/ThemeButton";
 import BreadCrumbs from "../components/common/BreadCrumbs";
 
-const navSections = [
-  {
-    label: "Platform",
-    items: [
-      { to: "/dashboard", label: "Dashboard" },
-      { to: "/temporary-user-detector", label: "Temporary User Detector" },
-      { to: "/category-engine", label: "Category Engine" },
-      { to: "/user-engine", label: "User Engine" },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/pipelines", label: "Pipelines" },
-      { to: "/monitoring", label: "Monitoring" },
-      { to: "/settings", label: "Settings" },
-    ],
-  },
-];
+import { navSections } from "../constants";
 
 const pathLabelMap = navSections.reduce(
   (acc, section) => {
@@ -32,6 +14,14 @@ const pathLabelMap = navSections.reduce(
     return acc;
   },
   { "/": "Home" }
+);
+
+const routeMeta = navSections.flatMap((section) =>
+  section.items.map((item) => ({
+    ...item,
+    sectionLabel: section.label,
+    sectionRoot: section.items[0]?.to || "/",
+  }))
 );
 
 function humanizeSegment(segment) {
@@ -45,6 +35,18 @@ function MLPersonalizationEngineLayout() {
 
   const breadcrumbs = useMemo(() => {
     const path = location.pathname || "/";
+    if (path === "/") {
+      return [{ to: "/", label: "Home" }];
+    }
+
+    const match = routeMeta.find((item) => item.to === path);
+    if (match) {
+      return [
+        { to: match.sectionRoot, label: match.sectionLabel },
+        { to: match.to, label: match.label },
+      ];
+    }
+
     const parts = path.split("/").filter(Boolean);
     const items = [{ to: "/", label: "Home" }];
     let current = "";
@@ -61,6 +63,15 @@ function MLPersonalizationEngineLayout() {
   }, [location.pathname]);
 
   const pageName = breadcrumbs[breadcrumbs.length - 1]?.label || "Home";
+  const subtitle = (() => {
+    const path = location.pathname || "/";
+    const parts = path.split("/").filter(Boolean);
+    const lastPart = parts[parts.length - 1] || "";
+    const navItem = navSections
+      .flatMap((section) => section.items)
+      .find((item) => item.to === `/${lastPart}`);
+    return navItem?.subtitle || "";
+  })();
 
   return (
     <div className="min-h-screen bg-base-300 text-base-content flex">
@@ -103,8 +114,8 @@ function MLPersonalizationEngineLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col">
-        <header className="border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
+      <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-auto">
+        <header className="sticky border-b-3 border-primary/90 flex items-center justify-between px-4 py-3 bg-base-300">
           <img
             src={logos.aura}
             alt="AURA Logo"
@@ -114,10 +125,15 @@ function MLPersonalizationEngineLayout() {
           <ThemeButton />
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="text-2xl font-semibold mb-2">{pageName}</div>
-            <Outlet />
+         <main className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-base-300 via-base-100 to-base-200">
+          <div className="max-w-9xl px-10 py-8 min-h-0 flex-1 min-h-0">
+            <div className="flex flex-row items-center mb-6 justify-between">
+              <div className="text-2xl font-semibold">{pageName}</div>
+              <div className="text-xs text-base-content/60 hidden md:block">{subtitle}</div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
@@ -139,14 +155,13 @@ function NavItem({ to, label }) {
       to={to}
       className={({ isActive }) =>
         [
-          "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-base-content/70 hover:bg-base-300 hover:text-base-content transition text-sm",
+          "flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-base-300 hover:text-base-content transition text-sm",
           isActive
-            ? "bg-primary/15 text-base-content border border-primary/30"
-            : "",
+            ? "bg-primary/15 text-base-content border border-primary/70 border-l-6 pl-2"
+            : "text-base-content/50",
         ].join(" ")
       }
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-base-content/40" />
       <span>{label}</span>
     </NavLink>
   );

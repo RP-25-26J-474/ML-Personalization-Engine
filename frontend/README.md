@@ -14,6 +14,14 @@ cd frontend
 npm install
 ```
 
+## Environment
+
+Create or update `frontend/.env` (you can copy values from `frontend/.env.example`).
+
+Available variables:
+
+- `VITE_API_BASE_URL`: Backend API base URL (default local: `http://localhost:8000`)
+
 ## Development
 
 ```bash
