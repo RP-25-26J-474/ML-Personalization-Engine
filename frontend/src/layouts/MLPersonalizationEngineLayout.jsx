@@ -53,7 +53,7 @@ function MLPersonalizationEngineLayout() {
       return [
         { to: usersRoute?.sectionRoot || "/admin/users", label: usersRoute?.sectionLabel || "Operations" },
         { to: "/admin/users", label: usersRoute?.label || "Monitor Users" },
-        { to: path, label: selectedUserName || "User Profile" },
+        { to: path, label: "User Profile" },
       ];
     }
 

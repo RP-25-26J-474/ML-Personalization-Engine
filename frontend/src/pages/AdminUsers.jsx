@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { getExternalUsers } from "../services/api-services";
 
 function AdminUsers() {
+  const navigate = useNavigate();
   const [usersResponse, setUsersResponse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,23 +51,12 @@ function AdminUsers() {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-primary/10 bg-base-200 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-semibold">Users</div>
-            <div className="mt-1 text-sm text-base-content/60">
-              Browse current users and open an MLPE-centered profile view.
-            </div>
+        <div>
+          <div className="text-xs uppercase tracking-wide text-base-content/50">
+            Total Users
           </div>
-          <div className="rounded-xl border border-primary/10 bg-base-100 px-4 py-3 text-right">
-            <div className="text-xs uppercase tracking-wide text-base-content/50">
-              Loaded Users
-            </div>
-            <div className="mt-1 text-2xl font-semibold">
-              {loading ? "--" : users.length}
-            </div>
-            <div className="text-xs text-base-content/60">
-              Total: {loading ? "--" : totalUsers}
-            </div>
+          <div className="mt-2 text-3xl font-semibold">
+            {loading ? "--" : totalUsers}
           </div>
         </div>
       </section>
@@ -93,51 +83,33 @@ function AdminUsers() {
                   <tr>
                     <th>User</th>
                     <th>Demographics</th>
-                    <th>Privacy</th>
                     <th>Created</th>
                     <th>Last Login</th>
-                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user._id}>
+                    <tr
+                      key={user._id}
+                      className="cursor-pointer transition-colors hover:bg-primary/8"
+                      onClick={() =>
+                        navigate(`/admin/users/${encodeURIComponent(user._id)}`, {
+                          state: { user },
+                        })
+                      }
+                    >
                       <td>
                         <div className="font-medium">{user.name || "Unnamed user"}</div>
                         <div className="text-xs text-base-content/60">{user.email || "--"}</div>
-                        <div className="text-xs text-base-content/40">{user._id}</div>
                       </td>
                       <td className="text-sm text-base-content/70">
                         {user.age ?? "--"} years, {user.gender ?? "--"}
-                      </td>
-                      <td>
-                        <div className="flex flex-wrap gap-2">
-                          <StatusBadge
-                            active={Boolean(user.consentGiven)}
-                            activeLabel="Consent On"
-                            inactiveLabel="Consent Off"
-                          />
-                          <StatusBadge
-                            active={Boolean(user.trackingEnabled)}
-                            activeLabel="Tracking On"
-                            inactiveLabel="Tracking Off"
-                          />
-                        </div>
                       </td>
                       <td className="text-sm text-base-content/70">
                         {formatDateTime(user.createdAt)}
                       </td>
                       <td className="text-sm text-base-content/70">
                         {formatDateTime(user.lastLogin)}
-                      </td>
-                      <td className="text-right">
-                        <Link
-                          to={`/admin/users/${encodeURIComponent(user._id)}`}
-                          state={{ user }}
-                          className="btn btn-sm btn-primary"
-                        >
-                          Open Profile
-                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -175,21 +147,6 @@ function AdminUsers() {
         )}
       </section>
     </div>
-  );
-}
-
-function StatusBadge({ active, activeLabel, inactiveLabel }) {
-  return (
-    <span
-      className={[
-        "inline-flex rounded-full border px-2 py-1 text-xs font-medium",
-        active
-          ? "border-success/40 bg-success/10 text-success"
-          : "border-base-content/20 bg-base-100 text-base-content/60",
-      ].join(" ")}
-    >
-      {active ? activeLabel : inactiveLabel}
-    </span>
   );
 }
 
