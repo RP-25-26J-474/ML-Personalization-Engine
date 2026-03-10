@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel, Field
 import numpy as np
 from importlib import import_module
 from datetime import datetime
+from typing import Any
 import json
 from urllib.parse import urlencode, urljoin
 from urllib.request import urlopen, Request
@@ -10,9 +11,11 @@ from urllib.error import HTTPError, URLError
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch, InteractionBatchList
+from app.core.schemas.profile import PersonalizationProfile, ProfileKnobs, ProfileMetadata
 from app.core.utils.time import now_iso
 from app.core.utils.ids import new_id
 from app.core.config import settings
+from app.core.engine.constraints.clamp import clamp_profile_dict
 
 router = APIRouter()
 
@@ -43,6 +46,9 @@ class TriggerUserEngineResponse(BaseModel):
     user_id: str
     fetched_batches: int
     processed_batches: int
+    feedback_payload_received: bool = False
+    applied_feedback_overrides: list[str] = Field(default_factory=list)
+    skipped_feedback_overrides: list[dict] = Field(default_factory=list)
     quarantined: bool
     kept_batches: list[str]
     quarantined_batches: list[dict]
@@ -75,6 +81,20 @@ class TrainSeqModelResponse(BaseModel):
     n_sequences: int
     n_clusters: int | None = None
     model_version: str | None = None
+
+
+class FeedbackOverrideItem(BaseModel):
+    attribute: str
+    old_value: Any = None
+    new_value: Any = None
+
+
+class TriggerUpdateBody(BaseModel):
+    user_id: str = Field(min_length=1)
+    session_id: str | None = None
+    base_profile_version: int | None = None
+    sent_at: str | None = None
+    feedback_overrides: list[FeedbackOverrideItem] = Field(default_factory=list)
 
 
 class UserClusterPoint(BaseModel):
@@ -222,6 +242,55 @@ def _fetch_external_batches(user_id: str) -> list[InteractionBatch]:
     return parsed[:50]
 
 
+def _apply_feedback_overrides(user_id: str, payload: TriggerUpdateBody | None) -> tuple[list[str], list[dict]]:
+    if payload is None or not payload.feedback_overrides:
+        return [], []
+
+    prev = container.profiles_repo.get_latest(user_id)
+    if prev is None:
+        return [], [{"reason": "no_existing_profile", "attribute": "*"}]
+
+    allowed = set(ProfileKnobs.model_fields.keys())
+    merged_profile = prev.profile.model_dump()
+    applied: list[str] = []
+    skipped: list[dict] = []
+
+    for item in payload.feedback_overrides:
+        attr = item.attribute.strip()
+        if attr not in allowed:
+            skipped.append({"attribute": item.attribute, "reason": "unknown_attribute"})
+            continue
+
+        candidate = dict(merged_profile)
+        candidate[attr] = item.new_value
+        candidate = clamp_profile_dict(candidate)
+        try:
+            validated = ProfileKnobs.model_validate(candidate).model_dump()
+        except Exception:
+            skipped.append({"attribute": item.attribute, "reason": "invalid_new_value"})
+            continue
+
+        merged_profile = validated
+        applied.append(attr)
+
+    if not applied:
+        return applied, skipped
+
+    next_version = prev.metadata.version + 1
+    profile = PersonalizationProfile(
+        user_id=user_id,
+        metadata=ProfileMetadata(
+            origin="user",
+            created_at=now_iso(),
+            confidence_overall=prev.metadata.confidence_overall,
+            version=next_version,
+        ),
+        profile=ProfileKnobs(**merged_profile),
+    )
+    container.profiles_repo.save_version(profile)
+    return applied, skipped
+
+
 @router.post(
     "/update-profile-batch",
     response_model=UserUpdateBatchResponse,
@@ -259,20 +328,35 @@ def update_profile_batch(payload: InteractionBatchList):
     ),
 )
 def trigger_update(
-    user_id: str = Query(..., min_length=1, description="Identifier of the user to process."),
+    user_id: str | None = Query(default=None, min_length=1, description="Identifier of the user to process."),
+    payload: TriggerUpdateBody | None = Body(default=None),
 ):
-    batches = _fetch_external_batches(user_id=user_id)
+    resolved_user_id = (payload.user_id if payload is not None else None) or user_id
+    if not resolved_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required either as query param or request body")
+    if payload is not None and user_id is not None and payload.user_id != user_id:
+        raise HTTPException(status_code=400, detail="user_id mismatch between query param and request body")
+
+    applied_overrides, skipped_overrides = _apply_feedback_overrides(
+        user_id=resolved_user_id,
+        payload=payload,
+    )
+
+    batches = _fetch_external_batches(user_id=resolved_user_id)
     if not batches:
         raise HTTPException(
             status_code=404,
-            detail=f"no valid interaction batches found for user_id={user_id}",
+            detail=f"no valid interaction batches found for user_id={resolved_user_id}",
         )
 
     out = container.orchestrator.handle_interactions_many(batches)
     return TriggerUserEngineResponse(
-        user_id=user_id,
+        user_id=resolved_user_id,
         fetched_batches=len(batches),
         processed_batches=len(out.kept_batches) + len(out.quarantined_batches) + len(out.rejected_batches),
+        feedback_payload_received=payload is not None,
+        applied_feedback_overrides=applied_overrides,
+        skipped_feedback_overrides=skipped_overrides,
         quarantined=out.quarantined,
         kept_batches=out.kept_batches,
         quarantined_batches=out.quarantined_batches,
