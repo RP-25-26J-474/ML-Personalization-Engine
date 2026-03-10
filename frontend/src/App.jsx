@@ -7,6 +7,8 @@ import TemporaryUserDetector from "./pages/TemporaryUserDetector";
 import CategoryEngine from "./pages/CategoryEngine";
 import UserEngine from "./pages/UserEngine";
 import TrainModels from "./pages/TrainModels";
+import AdminUsers from "./pages/AdminUsers";
+import AdminUserProfile from "./pages/AdminUserProfile";
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
           <Route path="category-engine" element={<CategoryEngine />} />
           <Route path="user-engine" element={<UserEngine />} />
           <Route path="train" element={<TrainModels />} />
+          <Route path="admin/users" element={<AdminUsers />} />
+          <Route path="admin/users/:userId" element={<AdminUserProfile />} />
         </Route>
       </Routes>
     </BrowserRouter>

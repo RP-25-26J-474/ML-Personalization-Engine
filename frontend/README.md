@@ -21,6 +21,8 @@ Create or update `frontend/.env` (you can copy values from `frontend/.env.exampl
 Available variables:
 
 - `VITE_API_BASE_URL`: Backend API base URL (default local: `http://localhost:8000`)
+- `EXT_BACKEND_BASE_URL`: External product backend base URL (default local: `http://localhost:3000`)
+- `EXT_BACKEND_USERS_PATH`: External users endpoint path (default: `/api/users`)
 
 ## Development
 
