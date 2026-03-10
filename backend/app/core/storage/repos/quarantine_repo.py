@@ -22,6 +22,11 @@ class QuarantineRepo:
     def add(self, row: QuarantineRow) -> None:
         self._col.insert_one(asdict(row))
 
+    def add_many(self, rows: list[QuarantineRow]) -> None:
+        if not rows:
+            return
+        self._col.insert_many([asdict(row) for row in rows], ordered=False)
+
     def list(self, user_id: str) -> list[QuarantineRow]:
         docs = self._col.find({"user_id": user_id})
         out: list[QuarantineRow] = []

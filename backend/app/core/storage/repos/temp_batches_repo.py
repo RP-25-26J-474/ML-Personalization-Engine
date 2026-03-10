@@ -27,6 +27,11 @@ class TempBatchesRepo:
     def add(self, row: TempBatchRecord) -> None:
         self._col.insert_one(asdict(row))
 
+    def add_many(self, rows: list[TempBatchRecord]) -> None:
+        if not rows:
+            return
+        self._col.insert_many([asdict(row) for row in rows], ordered=False)
+
     def list(self, user_id: str) -> list[TempBatchRecord]:
         docs = self._col.find({"user_id": user_id}).sort([("captured_at", 1)])
         out: list[TempBatchRecord] = []

@@ -21,13 +21,12 @@ from app.core.engine.merge.diff import diff_profiles
 
 from app.core.storage.repos.profiles_repo import ProfilesRepo
 from app.core.storage.repos.traces_repo import TracesRepo
-from app.core.storage.repos.quarantine_repo import QuarantineRepo, QuarantineRow
-from app.core.storage.repos.temp_batches_repo import TempBatchesRepo, TempBatchRecord
 from app.core.storage.repos.models_repo import ModelsRepo
+from app.core.storage.repos.temp_batches_repo import TempBatchesRepo, TempBatchRecord
+from app.core.storage.repos.quarantine_repo import QuarantineRepo, QuarantineRow
 from app.core.state_machine.service import StateMachineService
 from app.core.state_machine.definitions import (
     USER_LIFECYCLE,
-    BATCH_PIPELINE,
     PROFILE_UPDATE,
 )
 
@@ -61,9 +60,9 @@ class Orchestrator:
         user_engine: UserEngineService,
         profiles_repo: ProfilesRepo,
         traces_repo: TracesRepo,
-        quarantine_repo: QuarantineRepo,
         models_repo: ModelsRepo,
         temp_batches_repo: TempBatchesRepo,
+        quarantine_repo: QuarantineRepo,
         state_machine_service: StateMachineService,
     ):
         self.temp_detector = temp_detector
@@ -72,14 +71,10 @@ class Orchestrator:
 
         self.profiles_repo = profiles_repo
         self.traces_repo = traces_repo
-        self.quarantine_repo = quarantine_repo
         self.models_repo = models_repo
         self.temp_batches_repo = temp_batches_repo
+        self.quarantine_repo = quarantine_repo
         self.state_machine = state_machine_service
-
-    @staticmethod
-    def _batch_entity_id(user_id: str, batch_id: str) -> str:
-        return f"{user_id}:{batch_id}"
 
     def _sm_init(
         self,
@@ -261,27 +256,10 @@ class Orchestrator:
             actor="orchestrator",
             reason="interaction_received",
         )
-        batch_entity = self._batch_entity_id(batch.user_id, batch.batch_id)
-        self._sm_init(
-            traces,
-            machine=BATCH_PIPELINE.name,
-            entity_id=batch_entity,
-            actor="orchestrator",
-            reason="batch_ingested",
-        )
-        self._sm_transition(
-            traces,
-            machine=BATCH_PIPELINE.name,
-            entity_id=batch_entity,
-            to_state="scored",
-            actor="orchestrator",
-            reason="temp_detector_scored",
-        )
 
         # 1) Filter
         filt = self.temp_detector.score_batch(batch)
         traces.add(filt.trace)
-
         self.temp_batches_repo.add(
             TempBatchRecord(
                 user_id=batch.user_id,
@@ -295,34 +273,16 @@ class Orchestrator:
                 payload=batch.model_dump(),
             )
         )
+
         if filt.outcome == "keep":
             self.temp_detector.update_baseline(batch.user_id, filt.features)
-            self._sm_transition(
-                traces,
-                machine=BATCH_PIPELINE.name,
-                entity_id=batch_entity,
-                to_state="kept",
-                actor="orchestrator",
-                reason="batch_kept",
-                metadata={"anomaly_score": filt.anomaly_score},
-            )
 
         if filt.is_quarantined:
-            quarantine_state = "rejected" if filt.is_rejected else "quarantined"
-            self._sm_transition(
-                traces,
-                machine=BATCH_PIPELINE.name,
-                entity_id=batch_entity,
-                to_state=quarantine_state,
-                actor="orchestrator",
-                reason=filt.reason or "high_anomaly_score",
-                metadata={"anomaly_score": filt.anomaly_score},
-            )
             self.quarantine_repo.add(
                 QuarantineRow(
                     user_id=batch.user_id,
                     batch_id=batch.batch_id,
-                    reason=filt.reason or "unknown",
+                    reason=filt.reason or filt.outcome,
                     anomaly_score=filt.anomaly_score,
                     payload=batch.model_dump(),
                 )
@@ -458,38 +418,14 @@ class Orchestrator:
 
     def handle_interactions_many(self, batches: list[InteractionBatch]) -> OrchestratorBatchResult:
         traces = TraceBundle()
-        self._sm_init(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=batches[0].user_id,
-            actor="orchestrator",
-            reason="batch_interactions_received",
-        )
 
         kept: list[InteractionBatch] = []
         quarantined_batches: list[dict] = []
         rejected_batches: list[dict] = []
 
         for batch in batches:
-            batch_entity = self._batch_entity_id(batch.user_id, batch.batch_id)
-            self._sm_init(
-                traces,
-                machine=BATCH_PIPELINE.name,
-                entity_id=batch_entity,
-                actor="orchestrator",
-                reason="batch_ingested",
-            )
-            self._sm_transition(
-                traces,
-                machine=BATCH_PIPELINE.name,
-                entity_id=batch_entity,
-                to_state="scored",
-                actor="orchestrator",
-                reason="temp_detector_scored",
-            )
             filt = self.temp_detector.score_batch(batch)
             traces.add(filt.trace)
-
             self.temp_batches_repo.add(
                 TempBatchRecord(
                     user_id=batch.user_id,
@@ -503,38 +439,11 @@ class Orchestrator:
                     payload=batch.model_dump(),
                 )
             )
+
             if filt.outcome == "keep":
                 self.temp_detector.update_baseline(batch.user_id, filt.features)
-                self._sm_transition(
-                    traces,
-                    machine=BATCH_PIPELINE.name,
-                    entity_id=batch_entity,
-                    to_state="kept",
-                    actor="orchestrator",
-                    reason="batch_kept",
-                    metadata={"anomaly_score": filt.anomaly_score},
-                )
 
             if filt.is_quarantined:
-                quarantine_state = "rejected" if filt.is_rejected else "quarantined"
-                self._sm_transition(
-                    traces,
-                    machine=BATCH_PIPELINE.name,
-                    entity_id=batch_entity,
-                    to_state=quarantine_state,
-                    actor="orchestrator",
-                    reason=filt.reason or "high_anomaly_score",
-                    metadata={"anomaly_score": filt.anomaly_score},
-                )
-                self.quarantine_repo.add(
-                    QuarantineRow(
-                        user_id=batch.user_id,
-                        batch_id=batch.batch_id,
-                        reason=filt.reason or "unknown",
-                        anomaly_score=filt.anomaly_score,
-                        payload=batch.model_dump(),
-                    )
-                )
                 row = {
                     "batch_id": batch.batch_id,
                     "outcome": filt.outcome,
@@ -545,6 +454,15 @@ class Orchestrator:
                     rejected_batches.append(row)
                 else:
                     quarantined_batches.append(row)
+                self.quarantine_repo.add(
+                    QuarantineRow(
+                        user_id=batch.user_id,
+                        batch_id=batch.batch_id,
+                        reason=filt.reason or filt.outcome,
+                        anomaly_score=filt.anomaly_score,
+                        payload=batch.model_dump(),
+                    )
+                )
             else:
                 kept.append(batch)
 
@@ -592,38 +510,6 @@ class Orchestrator:
         merged = merge_profiles(category_base, user_res.suggestion_dict)
 
         next_version = (prev.metadata.version + 1) if prev else 1
-        update_entity = f"{user_id}:{next_version}"
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="nightly_eligible",
-            actor="orchestrator",
-            reason="legitimate_batches_available",
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="updating",
-            actor="orchestrator",
-            reason="user_batch_update_started",
-        )
-        self._sm_init(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            actor="orchestrator",
-            reason="profile_update_started",
-        )
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="validated",
-            actor="orchestrator",
-            reason="merge_validated",
-        )
         profile = PersonalizationProfile(
             user_id=user_id,
             metadata=ProfileMetadata(
@@ -636,39 +522,6 @@ class Orchestrator:
         )
 
         self.profiles_repo.save_version(profile)
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="persisted",
-            actor="orchestrator",
-            reason="profile_saved",
-        )
-        self._sm_transition(
-            traces,
-            machine=PROFILE_UPDATE.name,
-            entity_id=update_entity,
-            to_state="activated",
-            actor="orchestrator",
-            reason="profile_activated",
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="active",
-            actor="orchestrator",
-            reason="user_batch_update_completed",
-            metadata={"version": next_version},
-        )
-        self._sm_transition(
-            traces,
-            machine=USER_LIFECYCLE.name,
-            entity_id=user_id,
-            to_state="collecting",
-            actor="orchestrator",
-            reason="resume_collection_after_batch_update",
-        )
         self.traces_repo.save_many(user_id, traces.traces)
 
         d = diff_profiles(prev.profile.model_dump() if prev else None, profile.profile.model_dump())

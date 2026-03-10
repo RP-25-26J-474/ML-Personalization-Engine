@@ -1,13 +1,27 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from pydantic import BaseModel, Field
 import numpy as np
+from importlib import import_module
+from datetime import datetime
+from typing import Any
+import json
+from urllib.parse import urlencode, urljoin
+from urllib.request import urlopen, Request
+from urllib.error import HTTPError, URLError
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch, InteractionBatchList
-from app.core.engine.user_engine import seq_autoencoder
+from app.core.schemas.profile import PersonalizationProfile, ProfileKnobs, ProfileMetadata
 from app.core.utils.time import now_iso
+from app.core.utils.ids import new_id
+from app.core.config import settings
+from app.core.engine.constraints.clamp import clamp_profile_dict
 
 router = APIRouter()
+
+
+def _seq_autoencoder():
+    return import_module("app.core.engine.user_engine.seq_autoencoder")
 
 
 class UserUpdateResponse(BaseModel):
@@ -26,6 +40,22 @@ class UserUpdateBatchResponse(BaseModel):
     kept_batches: list[str]
     quarantined_batches: list[dict]
     rejected_batches: list[dict]
+
+
+class TriggerUserEngineResponse(BaseModel):
+    user_id: str
+    fetched_batches: int
+    processed_batches: int
+    feedback_payload_received: bool = False
+    applied_feedback_overrides: list[str] = Field(default_factory=list)
+    skipped_feedback_overrides: list[dict] = Field(default_factory=list)
+    quarantined: bool
+    kept_batches: list[str]
+    quarantined_batches: list[dict]
+    rejected_batches: list[dict]
+    profile: dict | None = None
+    diff: dict | None = None
+    traces: list[dict]
 
 
 class TrainSeqModelRequest(BaseModel):
@@ -51,6 +81,20 @@ class TrainSeqModelResponse(BaseModel):
     n_sequences: int
     n_clusters: int | None = None
     model_version: str | None = None
+
+
+class FeedbackOverrideItem(BaseModel):
+    attribute: str
+    old_value: Any = None
+    new_value: Any = None
+
+
+class TriggerUpdateBody(BaseModel):
+    user_id: str = Field(min_length=1)
+    session_id: str | None = None
+    base_profile_version: int | None = None
+    sent_at: str | None = None
+    feedback_overrides: list[FeedbackOverrideItem] = Field(default_factory=list)
 
 
 class UserClusterPoint(BaseModel):
@@ -97,6 +141,156 @@ def update_profile(batch: InteractionBatch):
     )
 
 
+def _parse_iso(ts: str) -> datetime:
+    raw = (ts or "").strip()
+    if not raw:
+        return datetime.min
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min
+
+
+def _normalize_external_batch(user_id: str, row: dict, idx: int) -> InteractionBatch | None:
+    captured_at = (
+        row.get("captured_at")
+        or row.get("capturedAt")
+        or row.get("timestamp")
+        or row.get("created_at")
+        or row.get("createdAt")
+    )
+    if not isinstance(captured_at, str) or not captured_at.strip():
+        return None
+
+    page_context = row.get("page_context") or row.get("pageContext") or {}
+    if not isinstance(page_context, dict):
+        page_context = {}
+
+    events_agg = row.get("events_agg") or row.get("eventsAgg") or row.get("aggregates") or {}
+    if not isinstance(events_agg, dict):
+        return None
+
+    batch_id_raw = row.get("batch_id") or row.get("batchId") or row.get("id")
+    batch_id = str(batch_id_raw).strip() if batch_id_raw is not None else ""
+    if not batch_id:
+        batch_id = new_id(f"ext_b{idx}")
+
+    try:
+        return InteractionBatch.model_validate(
+            {
+                "user_id": user_id,
+                "batch_id": batch_id,
+                "captured_at": captured_at,
+                "page_context": page_context,
+                "events_agg": events_agg,
+            }
+        )
+    except Exception:
+        return None
+
+
+def _fetch_external_batches(user_id: str) -> list[InteractionBatch]:
+    base = settings.EXT_BACKEND_BASE_URL.rstrip("/") + "/"
+    path = settings.EXT_BACKEND_INTERACTIONS_BATCH_PATH.lstrip("/")
+    url = urljoin(base, path)
+    query = urlencode({"user_id": user_id})
+    req = Request(f"{url}?{query}", headers={"Accept": "application/json"}, method="GET")
+
+    try:
+        with urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"extension backend returned HTTP {exc.code} for user_id={user_id}",
+        ) from exc
+    except URLError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"failed to reach extension backend for user_id={user_id}: {exc.reason}",
+        ) from exc
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"timeout while fetching extension batches for user_id={user_id}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"failed to parse extension backend response for user_id={user_id}",
+        ) from exc
+
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        rows = payload.get("batches") or payload.get("items") or []
+    else:
+        rows = []
+
+    if not isinstance(rows, list):
+        rows = []
+
+    parsed: list[InteractionBatch] = []
+    for idx, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        batch = _normalize_external_batch(user_id=user_id, row=row, idx=idx)
+        if batch is not None:
+            parsed.append(batch)
+
+    parsed.sort(key=lambda b: _parse_iso(b.captured_at), reverse=True)
+    return parsed[:50]
+
+
+def _apply_feedback_overrides(user_id: str, payload: TriggerUpdateBody | None) -> tuple[list[str], list[dict]]:
+    if payload is None or not payload.feedback_overrides:
+        return [], []
+
+    prev = container.profiles_repo.get_latest(user_id)
+    if prev is None:
+        return [], [{"reason": "no_existing_profile", "attribute": "*"}]
+
+    allowed = set(ProfileKnobs.model_fields.keys())
+    merged_profile = prev.profile.model_dump()
+    applied: list[str] = []
+    skipped: list[dict] = []
+
+    for item in payload.feedback_overrides:
+        attr = item.attribute.strip()
+        if attr not in allowed:
+            skipped.append({"attribute": item.attribute, "reason": "unknown_attribute"})
+            continue
+
+        candidate = dict(merged_profile)
+        candidate[attr] = item.new_value
+        candidate = clamp_profile_dict(candidate)
+        try:
+            validated = ProfileKnobs.model_validate(candidate).model_dump()
+        except Exception:
+            skipped.append({"attribute": item.attribute, "reason": "invalid_new_value"})
+            continue
+
+        merged_profile = validated
+        applied.append(attr)
+
+    if not applied:
+        return applied, skipped
+
+    next_version = prev.metadata.version + 1
+    profile = PersonalizationProfile(
+        user_id=user_id,
+        metadata=ProfileMetadata(
+            origin="user",
+            created_at=now_iso(),
+            confidence_overall=prev.metadata.confidence_overall,
+            version=next_version,
+        ),
+        profile=ProfileKnobs(**merged_profile),
+    )
+    container.profiles_repo.save_version(profile)
+    return applied, skipped
+
+
 @router.post(
     "/update-profile-batch",
     response_model=UserUpdateBatchResponse,
@@ -125,12 +319,62 @@ def update_profile_batch(payload: InteractionBatchList):
 
 
 @router.post(
+    "/trigger-update",
+    response_model=TriggerUserEngineResponse,
+    summary="Trigger user engine from extension backend history",
+    description=(
+        "Fetches latest aggregated interaction batches from the extension backend for a user, "
+        "runs temp-detector gating, and persists user profile updates."
+    ),
+)
+def trigger_update(
+    user_id: str | None = Query(default=None, min_length=1, description="Identifier of the user to process."),
+    payload: TriggerUpdateBody | None = Body(default=None),
+):
+    resolved_user_id = (payload.user_id if payload is not None else None) or user_id
+    if not resolved_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required either as query param or request body")
+    if payload is not None and user_id is not None and payload.user_id != user_id:
+        raise HTTPException(status_code=400, detail="user_id mismatch between query param and request body")
+
+    applied_overrides, skipped_overrides = _apply_feedback_overrides(
+        user_id=resolved_user_id,
+        payload=payload,
+    )
+
+    batches = _fetch_external_batches(user_id=resolved_user_id)
+    if not batches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no valid interaction batches found for user_id={resolved_user_id}",
+        )
+
+    out = container.orchestrator.handle_interactions_many(batches)
+    return TriggerUserEngineResponse(
+        user_id=resolved_user_id,
+        fetched_batches=len(batches),
+        processed_batches=len(out.kept_batches) + len(out.quarantined_batches) + len(out.rejected_batches),
+        feedback_payload_received=payload is not None,
+        applied_feedback_overrides=applied_overrides,
+        skipped_feedback_overrides=skipped_overrides,
+        quarantined=out.quarantined,
+        kept_batches=out.kept_batches,
+        quarantined_batches=out.quarantined_batches,
+        rejected_batches=out.rejected_batches,
+        profile=out.profile.model_dump() if out.profile else None,
+        diff=out.diff.model_dump() if out.diff else None,
+        traces=[t.model_dump() for t in out.traces.traces],
+    )
+
+
+@router.post(
     "/train-seq-model",
     response_model=TrainSeqModelResponse,
     summary="Train user sequence model",
     description="Trains the GRU autoencoder + clustering bundle used for user behavior sequence personalization.",
 )
 def train_seq_model(req: TrainSeqModelRequest):
+    seq_autoencoder = _seq_autoencoder()
     rows = container.temp_batches_repo.list_all()
     if req.outcomes:
         rows = [row for row in rows if row.outcome in set(req.outcomes)]
@@ -216,6 +460,7 @@ def user_cluster_map(
     min_sequence_len: int = 2,
     max_sequence_len: int = 20,
 ):
+    seq_autoencoder = _seq_autoencoder()
     bundle = container.user_engine._seq_bundle
     model_version = container.models_repo.user_seq_model_version
     if bundle is None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from importlib import import_module
+import os
 from typing import Dict, Any
 
 import numpy as np
@@ -8,7 +10,6 @@ from app.core.schemas.interactions import InteractionBatch, EventsAgg
 from app.core.schemas.trace import DecisionTrace, TraceAction
 from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 from app.core.utils.ids import new_id
-from app.core.engine.user_engine import seq_autoencoder
 from app.core.engine.user_engine import rules
 
 
@@ -29,7 +30,19 @@ class UserEngineService:
         self.artifact_store = artifact_store or ArtifactStore()
         self._seq_bundle = self._load_seq_bundle()
 
-    def _load_seq_bundle(self) -> seq_autoencoder.SeqModelBundle | None:
+    @staticmethod
+    def _seq_autoencoder():
+        return import_module("app.core.engine.user_engine.seq_autoencoder")
+
+    def _load_seq_bundle(self):
+        model_path = os.path.join(
+            self.artifact_store.base_dir,
+            "user_engine",
+            "seq_ae_model.joblib",
+        )
+        if not os.path.exists(model_path):
+            return None
+        seq_autoencoder = self._seq_autoencoder()
         try:
             return seq_autoencoder.load_bundle(self.artifact_store)
         except Exception:
@@ -66,6 +79,7 @@ class UserEngineService:
         return res
 
     def _suggest_seq_model(self, batches: list[InteractionBatch]) -> UserResult:
+        seq_autoencoder = self._seq_autoencoder()
         sequence = np.stack(
             [seq_autoencoder.extract_feature_vector(b) for b in batches], axis=0
         )
@@ -195,6 +209,7 @@ class UserEngineService:
         batch_size: int = 16,
         seed: int = 42,
     ) -> dict:
+        seq_autoencoder = self._seq_autoencoder()
         bundle = seq_autoencoder.train_seq_model(
             sequences=sequences,
             max_len=max_len,
