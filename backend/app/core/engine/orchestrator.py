@@ -22,6 +22,8 @@ from app.core.engine.merge.diff import diff_profiles
 from app.core.storage.repos.profiles_repo import ProfilesRepo
 from app.core.storage.repos.traces_repo import TracesRepo
 from app.core.storage.repos.models_repo import ModelsRepo
+from app.core.storage.repos.temp_batches_repo import TempBatchesRepo, TempBatchRecord
+from app.core.storage.repos.quarantine_repo import QuarantineRepo, QuarantineRow
 from app.core.state_machine.service import StateMachineService
 from app.core.state_machine.definitions import (
     USER_LIFECYCLE,
@@ -59,6 +61,8 @@ class Orchestrator:
         profiles_repo: ProfilesRepo,
         traces_repo: TracesRepo,
         models_repo: ModelsRepo,
+        temp_batches_repo: TempBatchesRepo,
+        quarantine_repo: QuarantineRepo,
         state_machine_service: StateMachineService,
     ):
         self.temp_detector = temp_detector
@@ -68,6 +72,8 @@ class Orchestrator:
         self.profiles_repo = profiles_repo
         self.traces_repo = traces_repo
         self.models_repo = models_repo
+        self.temp_batches_repo = temp_batches_repo
+        self.quarantine_repo = quarantine_repo
         self.state_machine = state_machine_service
 
     def _sm_init(
@@ -254,11 +260,33 @@ class Orchestrator:
         # 1) Filter
         filt = self.temp_detector.score_batch(batch)
         traces.add(filt.trace)
+        self.temp_batches_repo.add(
+            TempBatchRecord(
+                user_id=batch.user_id,
+                batch_id=batch.batch_id,
+                captured_at=batch.captured_at,
+                outcome=filt.outcome,
+                anomaly_score=filt.anomaly_score,
+                similarity_score=filt.similarity_score,
+                heuristic_components=filt.heuristic_components,
+                features=filt.features,
+                payload=batch.model_dump(),
+            )
+        )
 
         if filt.outcome == "keep":
             self.temp_detector.update_baseline(batch.user_id, filt.features)
 
         if filt.is_quarantined:
+            self.quarantine_repo.add(
+                QuarantineRow(
+                    user_id=batch.user_id,
+                    batch_id=batch.batch_id,
+                    reason=filt.reason or filt.outcome,
+                    anomaly_score=filt.anomaly_score,
+                    payload=batch.model_dump(),
+                )
+            )
             self.traces_repo.save_many(batch.user_id, traces.traces)
             return OrchestratorResult(
                 profile=None,
@@ -398,6 +426,19 @@ class Orchestrator:
         for batch in batches:
             filt = self.temp_detector.score_batch(batch)
             traces.add(filt.trace)
+            self.temp_batches_repo.add(
+                TempBatchRecord(
+                    user_id=batch.user_id,
+                    batch_id=batch.batch_id,
+                    captured_at=batch.captured_at,
+                    outcome=filt.outcome,
+                    anomaly_score=filt.anomaly_score,
+                    similarity_score=filt.similarity_score,
+                    heuristic_components=filt.heuristic_components,
+                    features=filt.features,
+                    payload=batch.model_dump(),
+                )
+            )
 
             if filt.outcome == "keep":
                 self.temp_detector.update_baseline(batch.user_id, filt.features)
@@ -413,6 +454,15 @@ class Orchestrator:
                     rejected_batches.append(row)
                 else:
                     quarantined_batches.append(row)
+                self.quarantine_repo.add(
+                    QuarantineRow(
+                        user_id=batch.user_id,
+                        batch_id=batch.batch_id,
+                        reason=filt.reason or filt.outcome,
+                        anomaly_score=filt.anomaly_score,
+                        payload=batch.model_dump(),
+                    )
+                )
             else:
                 kept.append(batch)
 

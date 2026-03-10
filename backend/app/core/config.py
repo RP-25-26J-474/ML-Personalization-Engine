@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ARTIFACTS_DIR: str = "artifacts"
     MONGODB_URI: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "mlpe"
+    EXT_BACKEND_BASE_URL: str = "http://localhost:3000"
+    EXT_BACKEND_INTERACTIONS_BATCH_PATH: str = "/api/interactions/aggregated-batches"
 
     @field_validator("DEBUG", mode="before")
     @classmethod
