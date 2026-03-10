@@ -2,10 +2,17 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 import numpy as np
 from importlib import import_module
+from datetime import datetime
+import json
+from urllib.parse import urlencode, urljoin
+from urllib.request import urlopen, Request
+from urllib.error import HTTPError, URLError
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch, InteractionBatchList
 from app.core.utils.time import now_iso
+from app.core.utils.ids import new_id
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -30,6 +37,19 @@ class UserUpdateBatchResponse(BaseModel):
     kept_batches: list[str]
     quarantined_batches: list[dict]
     rejected_batches: list[dict]
+
+
+class TriggerUserEngineResponse(BaseModel):
+    user_id: str
+    fetched_batches: int
+    processed_batches: int
+    quarantined: bool
+    kept_batches: list[str]
+    quarantined_batches: list[dict]
+    rejected_batches: list[dict]
+    profile: dict | None = None
+    diff: dict | None = None
+    traces: list[dict]
 
 
 class TrainSeqModelRequest(BaseModel):
@@ -101,6 +121,107 @@ def update_profile(batch: InteractionBatch):
     )
 
 
+def _parse_iso(ts: str) -> datetime:
+    raw = (ts or "").strip()
+    if not raw:
+        return datetime.min
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min
+
+
+def _normalize_external_batch(user_id: str, row: dict, idx: int) -> InteractionBatch | None:
+    captured_at = (
+        row.get("captured_at")
+        or row.get("capturedAt")
+        or row.get("timestamp")
+        or row.get("created_at")
+        or row.get("createdAt")
+    )
+    if not isinstance(captured_at, str) or not captured_at.strip():
+        return None
+
+    page_context = row.get("page_context") or row.get("pageContext") or {}
+    if not isinstance(page_context, dict):
+        page_context = {}
+
+    events_agg = row.get("events_agg") or row.get("eventsAgg") or row.get("aggregates") or {}
+    if not isinstance(events_agg, dict):
+        return None
+
+    batch_id_raw = row.get("batch_id") or row.get("batchId") or row.get("id")
+    batch_id = str(batch_id_raw).strip() if batch_id_raw is not None else ""
+    if not batch_id:
+        batch_id = new_id(f"ext_b{idx}")
+
+    try:
+        return InteractionBatch.model_validate(
+            {
+                "user_id": user_id,
+                "batch_id": batch_id,
+                "captured_at": captured_at,
+                "page_context": page_context,
+                "events_agg": events_agg,
+            }
+        )
+    except Exception:
+        return None
+
+
+def _fetch_external_batches(user_id: str) -> list[InteractionBatch]:
+    base = settings.EXT_BACKEND_BASE_URL.rstrip("/") + "/"
+    path = settings.EXT_BACKEND_INTERACTIONS_BATCH_PATH.lstrip("/")
+    url = urljoin(base, path)
+    query = urlencode({"user_id": user_id})
+    req = Request(f"{url}?{query}", headers={"Accept": "application/json"}, method="GET")
+
+    try:
+        with urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except HTTPError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"extension backend returned HTTP {exc.code} for user_id={user_id}",
+        ) from exc
+    except URLError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"failed to reach extension backend for user_id={user_id}: {exc.reason}",
+        ) from exc
+    except TimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"timeout while fetching extension batches for user_id={user_id}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"failed to parse extension backend response for user_id={user_id}",
+        ) from exc
+
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        rows = payload.get("batches") or payload.get("items") or []
+    else:
+        rows = []
+
+    if not isinstance(rows, list):
+        rows = []
+
+    parsed: list[InteractionBatch] = []
+    for idx, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        batch = _normalize_external_batch(user_id=user_id, row=row, idx=idx)
+        if batch is not None:
+            parsed.append(batch)
+
+    parsed.sort(key=lambda b: _parse_iso(b.captured_at), reverse=True)
+    return parsed[:50]
+
+
 @router.post(
     "/update-profile-batch",
     response_model=UserUpdateBatchResponse,
@@ -125,6 +246,40 @@ def update_profile_batch(payload: InteractionBatchList):
         kept_batches=out.kept_batches,
         quarantined_batches=out.quarantined_batches,
         rejected_batches=out.rejected_batches,
+    )
+
+
+@router.post(
+    "/trigger-update",
+    response_model=TriggerUserEngineResponse,
+    summary="Trigger user engine from extension backend history",
+    description=(
+        "Fetches latest aggregated interaction batches from the extension backend for a user, "
+        "runs temp-detector gating, and persists user profile updates."
+    ),
+)
+def trigger_update(
+    user_id: str = Query(..., min_length=1, description="Identifier of the user to process."),
+):
+    batches = _fetch_external_batches(user_id=user_id)
+    if not batches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"no valid interaction batches found for user_id={user_id}",
+        )
+
+    out = container.orchestrator.handle_interactions_many(batches)
+    return TriggerUserEngineResponse(
+        user_id=user_id,
+        fetched_batches=len(batches),
+        processed_batches=len(out.kept_batches) + len(out.quarantined_batches) + len(out.rejected_batches),
+        quarantined=out.quarantined,
+        kept_batches=out.kept_batches,
+        quarantined_batches=out.quarantined_batches,
+        rejected_batches=out.rejected_batches,
+        profile=out.profile.model_dump() if out.profile else None,
+        diff=out.diff.model_dump() if out.diff else None,
+        traces=[t.model_dump() for t in out.traces.traces],
     )
 
 
