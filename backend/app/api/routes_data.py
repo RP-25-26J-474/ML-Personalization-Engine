@@ -27,25 +27,6 @@ def list_traces(user_id: str):
 
 
 @router.get(
-    "/quarantine",
-    summary="List quarantined batches",
-    description="Returns interaction batches quarantined or rejected by the temporary user detector.",
-)
-def list_quarantine(user_id: str):
-    rows = container.quarantine_repo.list(user_id)
-    return [
-        {
-            "user_id": r.user_id,
-            "batch_id": r.batch_id,
-            "reason": r.reason,
-            "anomaly_score": r.anomaly_score,
-            "payload": r.payload,
-        }
-        for r in rows
-    ]
-
-
-@router.get(
     "/profile-diffs",
     summary="List profile change history",
     description="Computes version-to-version profile diffs to show exactly which knobs changed over time.",
