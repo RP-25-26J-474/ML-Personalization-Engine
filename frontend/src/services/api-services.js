@@ -172,12 +172,8 @@ export function trainCategoryWithSynth(nSynth) {
   return postJson("/category/train", { n_synth: nSynth });
 }
 
-export function getExternalUsers({ page = 1, limit = 50 } = {}) {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  return externalRequest(`${externalUsersPath}?${params.toString()}`, {
+export function getExternalUsers() {
+  return externalRequest(externalUsersPath, {
     method: "GET",
   });
 }

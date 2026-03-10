@@ -17,7 +17,7 @@ function AdminUsers() {
     async function loadUsers() {
       setLoading(true);
       try {
-        const data = await getExternalUsers({ page, limit: pageSize });
+        const data = await getExternalUsers();
         if (!mounted) {
           return;
         }
@@ -40,13 +40,14 @@ function AdminUsers() {
     return () => {
       mounted = false;
     };
-  }, [page]);
+  }, []);
 
-  const users = usersResponse?.users ?? [];
-  const pagination = usersResponse?.pagination;
-  const currentPage = pagination?.page ?? page;
-  const totalPages = pagination?.totalPages ?? 1;
-  const totalUsers = pagination?.total ?? users.length;
+  const allUsers = usersResponse?.users ?? [];
+  const totalUsers = usersResponse?.pagination?.total ?? allUsers.length;
+  const totalPages = Math.max(1, Math.ceil(allUsers.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const users = allUsers.slice(pageStart, pageStart + pageSize);
 
   return (
     <div className="space-y-6">
