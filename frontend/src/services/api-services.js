@@ -8,6 +8,10 @@ const externalUsersPath =
   import.meta.env.EXT_BACKEND_USERS_PATH ||
   import.meta.env.VITE_EXT_BACKEND_USERS_PATH ||
   "/api/users";
+const externalInteractionBatchesPath =
+  import.meta.env.EXT_BACKEND_INTERACTION_BATCHES_PATH ||
+  import.meta.env.VITE_EXT_BACKEND_INTERACTION_BATCHES_PATH ||
+  "/api/interactions/aggregated-batches";
 
 async function request(path, options = {}) {
   const defaultHeaders =
@@ -174,6 +178,15 @@ export function trainCategoryWithSynth(nSynth) {
 
 export function getExternalUsers() {
   return externalRequest(externalUsersPath, {
+    method: "GET",
+  });
+}
+
+export function getExternalInteractionBatches(userId) {
+  const params = new URLSearchParams({
+    user_id: String(userId || "").trim(),
+  });
+  return externalRequest(`${externalInteractionBatchesPath}?${params.toString()}`, {
     method: "GET",
   });
 }
