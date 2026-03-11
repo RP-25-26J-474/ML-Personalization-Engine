@@ -37,6 +37,10 @@ npm run build
 npm run preview
 ```
 
+## Vercel
+
+If this app is deployed to Vercel with React Router and `BrowserRouter`, configure the Vercel project `Root Directory` as `frontend/` and keep `frontend/vercel.json` in place so route refreshes rewrite to `index.html`.
+
 ## Linting
 
 ```bash
