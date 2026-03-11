@@ -15,6 +15,8 @@ class KNNArtifacts:
     X: np.ndarray                 # shape (n_samples, 6)
     profiles: list[dict]          # length n_samples, knob dicts
     feature_order: list[str] = None
+    train_neighbor_distance_mean: float | None = None
+    train_neighbor_distance_std: float | None = None
 
 
 def build_query_vector(impairment_probs: dict) -> np.ndarray:
@@ -25,4 +27,24 @@ def build_query_vector(impairment_probs: dict) -> np.ndarray:
 def train_knn(X: np.ndarray, profiles: list[dict], k: int = 10, metric: str = "cosine") -> KNNArtifacts:
     nn = NearestNeighbors(n_neighbors=min(k, len(X)), metric=metric)
     nn.fit(X)
-    return KNNArtifacts(nn=nn, X=X, profiles=profiles, feature_order=FEATURE_ORDER)
+
+    calibration_mean = 0.0
+    calibration_std = 0.0
+    if len(X) > 1:
+        calibration_nn = NearestNeighbors(n_neighbors=min(k + 1, len(X)), metric=metric)
+        calibration_nn.fit(X)
+        train_dists, _ = calibration_nn.kneighbors(X)
+        # Drop the self-match at distance 0 and summarize each point's neighborhood density.
+        local_neighbor_dists = train_dists[:, 1:]
+        local_avg_dists = np.mean(local_neighbor_dists, axis=1)
+        calibration_mean = float(np.mean(local_avg_dists))
+        calibration_std = float(np.std(local_avg_dists))
+
+    return KNNArtifacts(
+        nn=nn,
+        X=X,
+        profiles=profiles,
+        feature_order=FEATURE_ORDER,
+        train_neighbor_distance_mean=calibration_mean,
+        train_neighbor_distance_std=calibration_std,
+    )
