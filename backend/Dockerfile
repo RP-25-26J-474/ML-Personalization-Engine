@@ -3,7 +3,8 @@ FROM python:3.11-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    ARTIFACTS_DIR=/app/artifacts
 
 WORKDIR /app
 
@@ -19,6 +20,7 @@ RUN pip install --upgrade pip && \
     pip install -r requirements.txt
 
 COPY app ./app
+COPY artifacts ./artifacts
 
 EXPOSE 8000
 
