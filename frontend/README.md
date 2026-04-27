@@ -21,6 +21,8 @@ Create or update `frontend/.env` (you can copy values from `frontend/.env.exampl
 Available variables:
 
 - `VITE_API_BASE_URL`: Backend API base URL (default local: `http://localhost:8000`)
+- `EXT_BACKEND_BASE_URL`: External product backend base URL (default local: `http://localhost:3000`)
+- `EXT_BACKEND_USERS_PATH`: External users endpoint path (default: `/api/users`)
 
 ## Development
 
@@ -34,6 +36,10 @@ npm run dev
 npm run build
 npm run preview
 ```
+
+## Vercel
+
+If this app is deployed to Vercel with React Router and `BrowserRouter`, configure the Vercel project `Root Directory` as `frontend/` and keep `frontend/vercel.json` in place so route refreshes rewrite to `index.html`.
 
 ## Linting
 

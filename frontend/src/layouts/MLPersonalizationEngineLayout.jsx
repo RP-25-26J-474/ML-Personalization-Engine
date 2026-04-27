@@ -32,6 +32,7 @@ function humanizeSegment(segment) {
 
 function MLPersonalizationEngineLayout() {
   const location = useLocation();
+  const selectedUserName = location.state?.user?.name?.trim();
 
   const breadcrumbs = useMemo(() => {
     const path = location.pathname || "/";
@@ -44,6 +45,15 @@ function MLPersonalizationEngineLayout() {
       return [
         { to: match.sectionRoot, label: match.sectionLabel },
         { to: match.to, label: match.label },
+      ];
+    }
+
+    if (path.startsWith("/admin/users/")) {
+      const usersRoute = routeMeta.find((item) => item.to === "/admin/users");
+      return [
+        { to: usersRoute?.sectionRoot || "/admin/users", label: usersRoute?.sectionLabel || "Operations" },
+        { to: "/admin/users", label: usersRoute?.label || "Monitor Users" },
+        { to: path, label: "User Profile" },
       ];
     }
 
@@ -60,11 +70,14 @@ function MLPersonalizationEngineLayout() {
     });
 
     return items;
-  }, [location.pathname]);
+  }, [location.pathname, selectedUserName]);
 
   const pageName = breadcrumbs[breadcrumbs.length - 1]?.label || "Home";
   const subtitle = (() => {
     const path = location.pathname || "/";
+    if (path.startsWith("/admin/users/")) {
+      return "Inspect MLPE data and stored profile history for a selected user";
+    }
     const parts = path.split("/").filter(Boolean);
     const lastPart = parts[parts.length - 1] || "";
     const navItem = navSections

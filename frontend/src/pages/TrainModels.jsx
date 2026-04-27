@@ -19,7 +19,7 @@ import Modal from "../components/modals/Modal";
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
   const [nSynth, setNSynth] = useState(400);
-  const [categoryTrainMode, setCategoryTrainMode] = useState("synth");
+  const [categoryTrainMode, setCategoryTrainMode] = useState("csv");
   const [categoryCsvFile, setCategoryCsvFile] = useState(null);
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);

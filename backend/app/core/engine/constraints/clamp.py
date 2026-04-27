@@ -26,4 +26,6 @@ def clamp_profile_dict(profile: Dict[str, Any]) -> Dict[str, Any]:
     for k, bounds in SAFETY_BOUNDS.items():
         if k in out:
             out[k] = _clamp_num(out[k], bounds)
+    if "line_height" in out:
+        out["line_height"] = round(float(out["line_height"]), 2)
     return out

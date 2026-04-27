@@ -112,6 +112,25 @@ class CategoryEngineService:
         self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
         self._save_best()
 
+    def _compute_confidence(self, avg_dist: float) -> float:
+        if self.artifacts is None:
+            return 0.0
+
+        baseline_mean = getattr(self.artifacts, "train_neighbor_distance_mean", None)
+        baseline_std = getattr(self.artifacts, "train_neighbor_distance_std", None)
+
+        if baseline_mean is None:
+            return float(max(0.0, min(1.0, 1.0 - avg_dist)))
+
+        if not baseline_std or baseline_std <= 1e-9:
+            return 1.0 if avg_dist <= baseline_mean else 0.0
+
+        # Calibrate against the trained vector space so confidence remains stable
+        # when feature dimensionality or data distribution changes.
+        z = (baseline_mean - avg_dist) / baseline_std
+        confidence = 1.0 / (1.0 + np.exp(-z))
+        return float(max(0.0, min(1.0, confidence)))
+
     def generate(self, onboarding: OnboardingResult) -> CategoryResult:
         self._ensure_artifacts(n=400)
 
@@ -139,9 +158,8 @@ class CategoryEngineService:
         agg = weighted_aggregate(neighbor_profiles, weights)
         agg = clamp_profile_dict(agg)
 
-        # Confidence: inverse of average distance (scaled)
         avg_dist = float(np.mean(dists))
-        confidence = float(max(0.0, min(1.0, 1.0 - avg_dist)))  # cosine dist in [0,2], often <=1
+        confidence = self._compute_confidence(avg_dist)
 
         trace = DecisionTrace(
             trace_id=new_id("tr"),
@@ -156,6 +174,8 @@ class CategoryEngineService:
             ],
             metrics={
                 "avg_neighbor_distance": avg_dist,
+                "train_neighbor_distance_mean": getattr(self.artifacts, "train_neighbor_distance_mean", None),
+                "train_neighbor_distance_std": getattr(self.artifacts, "train_neighbor_distance_std", None),
                 "nearest_neighbor_distance": nearest_distance,
                 "nearest_neighbor_similarity": nearest_similarity,
                 "confidence_overall": confidence,
