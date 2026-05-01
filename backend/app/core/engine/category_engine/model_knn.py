@@ -15,6 +15,9 @@ class KNNArtifacts:
     X: np.ndarray                 # shape (n_samples, 6)
     profiles: list[dict]          # length n_samples, knob dicts
     feature_order: list[str] = None
+    n_samples: int = 0
+    metric: str = "cosine"
+    distance_scale: float = 1.0
     train_neighbor_distance_mean: float | None = None
     train_neighbor_distance_std: float | None = None
 
@@ -27,6 +30,10 @@ def build_query_vector(impairment_probs: dict) -> np.ndarray:
 def train_knn(X: np.ndarray, profiles: list[dict], k: int = 10, metric: str = "cosine") -> KNNArtifacts:
     nn = NearestNeighbors(n_neighbors=min(k, len(X)), metric=metric)
     nn.fit(X)
+    if metric == "euclidean":
+        distance_scale = float(np.sqrt(X.shape[1]))
+    else:
+        distance_scale = 1.0
 
     calibration_mean = 0.0
     calibration_std = 0.0
@@ -45,6 +52,9 @@ def train_knn(X: np.ndarray, profiles: list[dict], k: int = 10, metric: str = "c
         X=X,
         profiles=profiles,
         feature_order=FEATURE_ORDER,
+        n_samples=len(X),
+        metric=metric,
+        distance_scale=distance_scale,
         train_neighbor_distance_mean=calibration_mean,
         train_neighbor_distance_std=calibration_std,
     )
