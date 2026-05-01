@@ -1,5 +1,17 @@
 const defaultBaseUrl =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const externalBaseUrl =
+  import.meta.env.EXT_BACKEND_BASE_URL ||
+  import.meta.env.VITE_EXT_BACKEND_BASE_URL ||
+  "http://localhost:3000";
+const externalUsersPath =
+  import.meta.env.EXT_BACKEND_USERS_PATH ||
+  import.meta.env.VITE_EXT_BACKEND_USERS_PATH ||
+  "/api/users";
+const externalInteractionBatchesPath =
+  import.meta.env.EXT_BACKEND_INTERACTION_BATCHES_PATH ||
+  import.meta.env.VITE_EXT_BACKEND_INTERACTION_BATCHES_PATH ||
+  "/api/interactions/aggregated-batches";
 
 async function request(path, options = {}) {
   const defaultHeaders =
@@ -47,6 +59,41 @@ export function getJson(path) {
   return request(path, { method: "GET" });
 }
 
+async function externalRequest(path, options = {}) {
+  const defaultHeaders =
+    options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
+  const response = await fetch(`${externalBaseUrl}${path}`, {
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  const text = await response.text();
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+
+  if (!response.ok) {
+    const message =
+      (data && (data.detail || data.message)) ||
+      `Request failed (${response.status})`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+
+  return data;
+}
+
 export function postForm(path, formData) {
   return request(path, {
     method: "POST",
@@ -75,13 +122,6 @@ export function scoreTempDetectorBatches(payload) {
   return postJson("/temp-detector/score-batches", payload);
 }
 
-export function getTempDetectorHistory(userId) {
-  if (userId) {
-    return getJson(`/temp-detector/history?user_id=${encodeURIComponent(userId)}`);
-  }
-  return getJson("/temp-detector/history");
-}
-
 export function getTempDetectorStatus() {
   return getJson("/temp-detector/status");
 }
@@ -92,14 +132,6 @@ export function getTempDetectorForest(maxTrees = 12) {
 
 export function trainTempDetectorSynth(payload) {
   return postJson("/temp-detector/train-synth", payload);
-}
-
-export function trainTempDetectorFromBatches(payload) {
-  return postJson("/temp-detector/train-from-batches", payload);
-}
-
-export function buildTempTemplate(payload) {
-  return postJson("/temp-detector/template/build", payload);
 }
 
 export function getTempTemplate(userId) {
@@ -117,6 +149,8 @@ export function updateUserProfileBatch(payload) {
 export function getUserProfileDiffs(userId) {
   return getJson(`/data/profile-diffs?user_id=${encodeURIComponent(userId)}`);
 }
+
+export const getProfileDiffs = getUserProfileDiffs;
 
 export function trainUserSeqModel(payload) {
   return postJson("/user/train-seq-model", payload);
@@ -140,4 +174,35 @@ export function trainCategoryWithCsv(formData) {
 
 export function trainCategoryWithSynth(nSynth) {
   return postJson("/category/train", { n_synth: nSynth });
+}
+
+export function getExternalUsers() {
+  return externalRequest(externalUsersPath, {
+    method: "GET",
+  });
+}
+
+export function getExternalInteractionBatches(userId) {
+  const params = new URLSearchParams({
+    user_id: String(userId || "").trim(),
+  });
+  return externalRequest(`${externalInteractionBatchesPath}?${params.toString()}`, {
+    method: "GET",
+  });
+}
+
+export function getProfiles(userId) {
+  return getJson(`/data/profiles?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function getTraces(userId) {
+  return getJson(`/data/traces?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function getQuarantine(userId) {
+  return getJson(`/data/quarantine?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function getCurrentProfile(userId) {
+  return getJson(`/data/current-profile?user_id=${encodeURIComponent(userId)}`);
 }

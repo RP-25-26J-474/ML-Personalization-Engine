@@ -1,5 +1,3 @@
-import { appendConsole } from "./demo";
-
 function formatStateMessage(trace) {
   const action = Array.isArray(trace?.actions) ? trace.actions[0] : null;
   const details = action?.details || {};
@@ -30,12 +28,16 @@ export function appendStateMachineTraces(setConsoleText, traces) {
   const stateTraces = traces.filter((trace) => trace?.stage === "state_machine");
   if (stateTraces.length === 0) return;
 
-  appendConsole(
-    setConsoleText,
-    `State-machine transitions (${stateTraces.length})`
-  );
-  stateTraces.forEach((trace) => {
-    appendConsole(setConsoleText, formatStateMessage(trace));
+  const messages = [
+    `State-machine transitions (${stateTraces.length})`,
+    ...stateTraces.map((trace) => formatStateMessage(trace)),
+  ];
+  setConsoleText((prev) => {
+    const timestamped = messages.map(
+      (message) => `[${new Date().toLocaleTimeString()}] ${message}`
+    );
+    const block = timestamped.join("\n");
+    return prev ? `${prev}\n${block}` : block;
   });
 }
 

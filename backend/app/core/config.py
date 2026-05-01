@@ -8,12 +8,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DEBUG: bool = True
-    CORS_ALLOW_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://127.0.0.1:5175", "http://localhost:5175"]
+    CORS_ALLOW_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://127.0.0.1:5175", "http://localhost:5175", "https://ml-engine-gui.auraui.org"]
 
     # Demo-mode storage
     ARTIFACTS_DIR: str = "artifacts"
     MONGODB_URI: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "mlpe"
+    EXT_BACKEND_BASE_URL: str = "http://localhost:3000"
+    EXT_BACKEND_INTERACTIONS_BATCH_PATH: str = "/api/interactions/aggregated-batches"
 
     @field_validator("DEBUG", mode="before")
     @classmethod

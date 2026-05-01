@@ -1,4 +1,4 @@
-# AURA ML Personalization Engine | Major Release 1 (v1.0.0) (Stable)
+# AURA ML Personalization Engine | Minor Release (v1.1.0) (Stable)
 
 AURA ML Personalization Engine is a full-stack demo platform for accessibility-oriented personalization. It combines three core components:
 
@@ -7,6 +7,20 @@ AURA ML Personalization Engine is a full-stack demo platform for accessibility-o
 - User-wise Personalization Engine: continuously updates a user profile from accepted interaction history.
 
 The repository includes a React + Vite frontend for demos and a FastAPI backend that exposes the personalization workflows as APIs.
+
+## Release v1.1.0 Highlights
+
+This minor release builds on the stable v1.0.0 baseline with improved admin visibility, cleaner user-adaptation workflows, deployment fixes, and more reliable category-engine confidence scoring.
+
+- Added admin dashboard screens for browsing users and inspecting individual user profiles.
+- Added profile knob change visualization and profile-diff display improvements.
+- Added interaction-batch lookup by `user_id` in the user personalization UI.
+- Improved the user-engine update flow so kept interaction batches can drive adaptive profile updates more directly.
+- Stabilized category-engine KNN confidence calibration for larger training datasets.
+- Switched category KNN distance handling to better fit bounded 6D onboarding probability vectors.
+- Expanded synthetic category training data coverage to the full API-valid feature range.
+- Improved frontend deployment behavior, including Vercel refresh routing and frontend API environment configuration.
+- Added support for Dockerized ML artifacts and configurable hosted-frontend CORS origins.
 
 ## What the System Does
 
@@ -253,7 +267,8 @@ Typical demo sequence:
     },
     "motor": {
       "delayed_reaction": 0.3,
-      "inaccurate_click": 0.2
+      "inaccurate_click": 0.2,
+      "motor_impairment": 0.34
     },
     "literacy": 0.4
   },
@@ -299,8 +314,8 @@ Typical demo sequence:
 
 This README reflects the repository as a stable whole-project release:
 
-- Product release label: `Major Release 1`
-- Release version: `v1.0.0`
+- Product release label: `Minor Release 1`
+- Release version: `v1.1.0`
 - Stability label: `Stable`
 
 Implementation note:

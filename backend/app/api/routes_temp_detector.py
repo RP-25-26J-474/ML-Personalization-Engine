@@ -4,7 +4,6 @@ import numpy as np
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch
-from app.core.storage.repos.temp_batches_repo import TempBatchRecord
 from app.core.utils.time import now_iso
 
 router = APIRouter()
@@ -31,19 +30,6 @@ class TempScoreResponse(BaseModel):
 )
 def score_batch(batch: InteractionBatch):
     res = container.temp_detector.score_batch(batch)
-    container.temp_batches_repo.add(
-        TempBatchRecord(
-            user_id=batch.user_id,
-            batch_id=batch.batch_id,
-            captured_at=batch.captured_at,
-            outcome=res.outcome,
-            anomaly_score=res.anomaly_score,
-            similarity_score=res.similarity_score,
-            heuristic_components=res.heuristic_components,
-            features=res.features,
-            payload=batch.model_dump(),
-        )
-    )
     if res.outcome == "keep":
         container.temp_detector.update_baseline(batch.user_id, res.features)
     return TempScoreResponse(
@@ -107,19 +93,6 @@ def score_batches(req: TempScoreBatchesRequest):
     rejected: list[TempScoreItem] = []
 
     for batch, res in zip(req.batches, results):
-        container.temp_batches_repo.add(
-            TempBatchRecord(
-                user_id=batch.user_id,
-                batch_id=batch.batch_id,
-                captured_at=batch.captured_at,
-                outcome=res.outcome,
-                anomaly_score=res.anomaly_score,
-                similarity_score=res.similarity_score,
-                heuristic_components=res.heuristic_components,
-                features=res.features,
-                payload=batch.model_dump(),
-            )
-        )
         if res.outcome == "keep":
             container.temp_detector.update_baseline(batch.user_id, res.features)
 
@@ -211,28 +184,13 @@ class TrainFromBatchesRequest(BaseModel):
     description="Retrains the detector using historical scored batches filtered by user and outcome.",
 )
 def train_from_batches(req: TrainFromBatchesRequest):
-    rows = (
-        container.temp_batches_repo.list(req.user_id)
-        if req.user_id
-        else container.temp_batches_repo.list_all()
-    )
-    if req.outcomes:
-        rows = [row for row in rows if row.outcome in set(req.outcomes)]
-
-    if len(rows) < req.min_samples:
-        return {
-            "status": "not_enough_samples",
-            "n_samples": len(rows),
-            "min_samples": req.min_samples,
-        }
-
-    X = np.array([row.features for row in rows], dtype=float)
-    container.temp_detector.train_global(X)
-    trained_at = now_iso()
-    version = f"v{trained_at}"
-    container.models_repo.global_iforest_version = version
-    container.models_repo.global_iforest_last_trained_at = trained_at
-    return {"status": "trained", "n_samples": int(X.shape[0]), "version": version}
+    _ = req
+    return {
+        "status": "disabled_in_template_only_mode",
+        "n_samples": 0,
+        "min_samples": 0,
+        "message": "train-from-batches is disabled because interaction batches are not persisted.",
+    }
 
 
 class TempDetectorStatus(BaseModel):
@@ -253,7 +211,7 @@ def status():
     return TempDetectorStatus(
         model_trained=container.temp_detector.model is not None,
         model_version=container.models_repo.global_iforest_version,
-        history=container.temp_batches_repo.stats(),
+        history={"total": 0, "kept": 0, "quarantined": 0, "rejected": 0, "user_count": 0},
         baselines=container.temp_baseline_repo.stats(),
         feature_order=list(container.temp_detector.feature_order),
     )
@@ -268,22 +226,6 @@ class TempTemplateResponse(BaseModel):
     variance: list[float] | None = None
     std: list[float] | None = None
     updated_at: str | None = None
-
-
-class BuildTemplateRequest(BaseModel):
-    user_id: str = Field(
-        min_length=1, description="User identifier to build or refresh a baseline template."
-    )
-    min_samples: int = Field(default=5, description="Minimum kept batch count needed to build template.")
-
-
-class BuildTemplateResponse(BaseModel):
-    status: str
-    user_id: str
-    kept_samples: int
-    min_samples: int
-    feature_order: list[str] | None = None
-    template: TempTemplateResponse | None = None
 
 
 @router.get(
@@ -309,115 +251,6 @@ def get_template(user_id: str = Query(..., min_length=1)):
         std=list(tpl.get("std", [])),
         updated_at=tpl.get("updated_at"),
     )
-
-
-def _aggregate_features(feature_rows: list[list[float]]) -> tuple[int, list[float], list[float]]:
-    if not feature_rows:
-        return 0, [], []
-    dim = len(feature_rows[0])
-    n = 0
-    mean = [0.0 for _ in range(dim)]
-    m2 = [0.0 for _ in range(dim)]
-    for row in feature_rows:
-        if len(row) != dim:
-            continue
-        n += 1
-        for i in range(dim):
-            x = float(row[i])
-            delta = x - mean[i]
-            mean[i] += delta / n
-            delta2 = x - mean[i]
-            m2[i] += delta * delta2
-    return n, mean, m2
-
-
-@router.post(
-    "/template/build",
-    response_model=BuildTemplateResponse,
-    summary="Build user baseline template",
-    description="Builds baseline mean/variance statistics from kept historical batches for a user.",
-)
-def build_template(req: BuildTemplateRequest):
-    rows = container.temp_batches_repo.list(req.user_id)
-    kept = [r for r in rows if r.outcome == "keep" and r.features]
-    if len(kept) < req.min_samples:
-        return BuildTemplateResponse(
-            status="not_enough_samples",
-            user_id=req.user_id,
-            kept_samples=len(kept),
-            min_samples=req.min_samples,
-            feature_order=list(container.temp_detector.feature_order),
-            template=None,
-        )
-
-    n, mean, m2 = _aggregate_features([r.features for r in kept])
-    if n < req.min_samples:
-        return BuildTemplateResponse(
-            status="not_enough_samples",
-            user_id=req.user_id,
-            kept_samples=n,
-            min_samples=req.min_samples,
-            feature_order=list(container.temp_detector.feature_order),
-            template=None,
-        )
-
-    container.temp_baseline_repo.set_template(
-        user_id=req.user_id,
-        count=n,
-        mean=mean,
-        m2=m2,
-    )
-    tpl = container.temp_baseline_repo.get_template(req.user_id) or {}
-    return BuildTemplateResponse(
-        status="built",
-        user_id=req.user_id,
-        kept_samples=n,
-        min_samples=req.min_samples,
-        feature_order=list(container.temp_detector.feature_order),
-        template=TempTemplateResponse(
-            template_found=True,
-            user_id=req.user_id,
-            count=int(tpl.get("count", 0)),
-            feature_order=list(container.temp_detector.feature_order),
-            mean=list(tpl.get("mean", [])),
-            variance=list(tpl.get("variance", [])),
-            std=list(tpl.get("std", [])),
-            updated_at=tpl.get("updated_at"),
-        ),
-    )
-
-
-@router.get(
-    "/history",
-    summary="Get scoring history",
-    description="Returns persisted temp-detector scoring records and original batch payloads.",
-)
-def history(user_id: str | None = Query(default=None)):
-    rows = (
-        container.temp_batches_repo.list(user_id)
-        if user_id
-        else container.temp_batches_repo.list_all()
-    )
-    return {
-        "user_id": user_id,
-        "total": len(rows),
-        "items": [
-            TempScoreItem(
-                user_id=row.user_id,
-                batch_id=row.batch_id,
-                outcome=row.outcome,
-                quarantined=row.outcome in ("quarantine", "reject"),
-                rejected=row.outcome == "reject",
-                anomaly_score=row.anomaly_score,
-                similarity_score=row.similarity_score,
-                heuristic_components=row.heuristic_components,
-                reason=None,
-                trace={},
-                batch=row.payload,
-            )
-            for row in rows
-        ],
-    }
 
 
 def _serialize_tree(estimator, feature_names: list[str]) -> dict:

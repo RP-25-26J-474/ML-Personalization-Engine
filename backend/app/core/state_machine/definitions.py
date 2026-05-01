@@ -27,19 +27,6 @@ USER_LIFECYCLE = MachineDefinition(
     },
 )
 
-BATCH_PIPELINE = MachineDefinition(
-    name="batch_pipeline",
-    initial_state="ingested",
-    transitions={
-        "ingested": {"scored"},
-        "scored": {"kept", "quarantined", "rejected"},
-        "quarantined": {"quarantine_recheck", "scored"},
-        "quarantine_recheck": {"kept", "quarantined", "rejected", "scored"},
-        "kept": {"scored"},
-        "rejected": {"scored"},
-    },
-)
-
 PROFILE_UPDATE = MachineDefinition(
     name="profile_update",
     initial_state="proposed",
@@ -73,7 +60,6 @@ NIGHTLY_JOB = MachineDefinition(
 
 MACHINES: dict[str, MachineDefinition] = {
     USER_LIFECYCLE.name: USER_LIFECYCLE,
-    BATCH_PIPELINE.name: BATCH_PIPELINE,
     PROFILE_UPDATE.name: PROFILE_UPDATE,
     ADAPTIVE_INPUT.name: ADAPTIVE_INPUT,
     NIGHTLY_JOB.name: NIGHTLY_JOB,
