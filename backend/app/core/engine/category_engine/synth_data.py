@@ -5,10 +5,10 @@ import random
 def make_synth_survey_row(rnd: random.Random):
     # 6D impairment vector
     vision_loss = rnd.random()
-    color_blindness = rnd.random() * 0.6
-    delayed_reaction = rnd.random() * 0.6
-    inaccurate_click = rnd.random() * 0.6
-    motor_impairment = rnd.random() * 0.6
+    color_blindness = rnd.random()
+    delayed_reaction = rnd.random()
+    inaccurate_click = rnd.random()
+    motor_impairment = rnd.random()
     literacy = rnd.random()
 
     # Convert raw needs into plausible knob preferences
