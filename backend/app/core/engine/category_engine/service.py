@@ -4,6 +4,7 @@ from typing import Any, Dict
 import numpy as np
 
 from app.core.schemas.onboarding import OnboardingResult
+from app.core.schemas.profile import PROFILE_PASSTHROUGH_FIELDS
 from app.core.schemas.trace import DecisionTrace, TraceAction
 from app.core.utils.ids import new_id
 
@@ -46,7 +47,7 @@ def flatten_impairment_probs(onb: OnboardingResult) -> dict[str, float]:
 def weighted_aggregate(profiles: list[dict], weights: np.ndarray) -> dict:
     # Numeric mean, boolean vote, categorical vote
     out: dict[str, Any] = {}
-    keys = profiles[0].keys()
+    keys = [key for key in profiles[0].keys() if key not in PROFILE_PASSTHROUGH_FIELDS]
 
     for k in keys:
         vals = [p[k] for p in profiles]
@@ -237,6 +238,7 @@ class CategoryEngineService:
         neighbor_profiles = [self.artifacts.profiles[i] for i in idxs]
         agg = weighted_aggregate(neighbor_profiles, weights)
         agg = clamp_profile_dict(agg)
+        agg["color_blindness"] = onboarding.impairment_probs.vision.color_blindness
 
         avg_dist = float(np.mean(dists))
         confidence = self._compute_confidence(avg_dist)

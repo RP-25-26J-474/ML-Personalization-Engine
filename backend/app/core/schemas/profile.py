@@ -5,6 +5,7 @@ from typing import Literal, Optional
 ContrastMode = Literal["normal", "high"]
 ThemeMode = Literal["light", "dark"]
 Origin = Literal["category", "user"]
+PROFILE_PASSTHROUGH_FIELDS = {"color_blindness"}
 
 
 class ProfileKnobs(BaseModel):
@@ -26,6 +27,12 @@ class ProfileKnobs(BaseModel):
     target_size: int = Field(ge=10, le=80, description="Recommended interactive target size in CSS pixels.")
     tooltip_assist: bool = Field(description="Whether contextual tooltip assistance is recommended.")
     layout_simplification: bool = Field(description="Whether simplified layout mode is recommended.")
+    color_blindness: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="Onboarding color-vision deficiency probability, passed through unchanged.",
+    )
 
 
 class ProfileMetadata(BaseModel):

@@ -11,7 +11,12 @@ from urllib.error import HTTPError, URLError
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch, InteractionBatchList
-from app.core.schemas.profile import PersonalizationProfile, ProfileKnobs, ProfileMetadata
+from app.core.schemas.profile import (
+    PROFILE_PASSTHROUGH_FIELDS,
+    PersonalizationProfile,
+    ProfileKnobs,
+    ProfileMetadata,
+)
 from app.core.utils.time import now_iso
 from app.core.utils.ids import new_id
 from app.core.config import settings
@@ -250,7 +255,7 @@ def _apply_feedback_overrides(user_id: str, payload: TriggerUpdateBody | None) -
     if prev is None:
         return [], [{"reason": "no_existing_profile", "attribute": "*"}]
 
-    allowed = set(ProfileKnobs.model_fields.keys())
+    allowed = set(ProfileKnobs.model_fields.keys()) - PROFILE_PASSTHROUGH_FIELDS
     merged_profile = prev.profile.model_dump()
     applied: list[str] = []
     skipped: list[dict] = []
