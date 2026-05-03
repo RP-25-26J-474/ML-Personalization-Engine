@@ -134,6 +134,10 @@ export function trainTempDetectorSynth(payload) {
   return postJson("/temp-detector/train-synth", payload);
 }
 
+export function trainTempDetectorFromBatches(payload) {
+  return postJson("/temp-detector/train-from-batches", payload);
+}
+
 export function getTempTemplate(userId) {
   return getJson(`/temp-detector/template?user_id=${encodeURIComponent(userId)}`);
 }

@@ -175,7 +175,25 @@ class TrainFromBatchesRequest(BaseModel):
         default_factory=lambda: ["keep"],
         description="Outcome labels to include when selecting stored batches.",
     )
-    min_samples: int = Field(default=10, description="Minimum required sample count before training.")
+    min_samples: int = Field(default=50, ge=1, description="Minimum required sample count before training.")
+    contamination: float = Field(
+        default=0.10,
+        ge=0.001,
+        le=0.5,
+        description="Expected anomaly fraction for Isolation Forest training.",
+    )
+    quarantine_percentile: float = Field(
+        default=95.0,
+        ge=50.0,
+        le=99.9,
+        description="Percentile of kept-batch model scores used as quarantine threshold.",
+    )
+    reject_percentile: float = Field(
+        default=99.0,
+        ge=50.0,
+        le=99.99,
+        description="Percentile of kept-batch model scores used as reject threshold.",
+    )
 
 
 @router.post(
@@ -184,12 +202,50 @@ class TrainFromBatchesRequest(BaseModel):
     description="Retrains the detector using historical scored batches filtered by user and outcome.",
 )
 def train_from_batches(req: TrainFromBatchesRequest):
-    _ = req
+    if req.reject_percentile <= req.quarantine_percentile:
+        return {
+            "status": "invalid_calibration",
+            "message": "reject_percentile must be greater than quarantine_percentile.",
+            "n_samples": 0,
+            "min_samples": req.min_samples,
+        }
+
+    rows = (
+        container.temp_batches_repo.list(req.user_id)
+        if req.user_id
+        else container.temp_batches_repo.list_all()
+    )
+    allowed = set(req.outcomes or ["keep"])
+    rows = [row for row in rows if row.outcome in allowed]
+    expected_width = len(container.temp_detector.feature_order)
+    rows = [row for row in rows if len(row.features) == expected_width]
+
+    if len(rows) < req.min_samples:
+        return {
+            "status": "not_enough_samples",
+            "n_samples": len(rows),
+            "min_samples": req.min_samples,
+            "outcomes": sorted(allowed),
+            "user_id": req.user_id,
+        }
+
+    stats = container.temp_detector.train_from_feature_rows(
+        [row.features for row in rows],
+        contamination=req.contamination,
+        quarantine_percentile=req.quarantine_percentile,
+        reject_percentile=req.reject_percentile,
+    )
+    trained_at = now_iso()
+    version = f"v{trained_at}"
+    container.models_repo.global_iforest_version = version
+    container.models_repo.global_iforest_last_trained_at = trained_at
     return {
-        "status": "disabled_in_template_only_mode",
-        "n_samples": 0,
-        "min_samples": 0,
-        "message": "train-from-batches is disabled because interaction batches are not persisted.",
+        "status": "trained",
+        "version": version,
+        "source": "stored_batches",
+        "outcomes": sorted(allowed),
+        "user_id": req.user_id,
+        **stats,
     }
 
 
@@ -208,10 +264,11 @@ class TempDetectorStatus(BaseModel):
     description="Returns detector training status, model version, history stats, and per-user baseline stats.",
 )
 def status():
+    history = container.temp_batches_repo.stats()
     return TempDetectorStatus(
         model_trained=container.temp_detector.model is not None,
         model_version=container.models_repo.global_iforest_version,
-        history={"total": 0, "kept": 0, "quarantined": 0, "rejected": 0, "user_count": 0},
+        history=history,
         baselines=container.temp_baseline_repo.stats(),
         feature_order=list(container.temp_detector.feature_order),
     )
