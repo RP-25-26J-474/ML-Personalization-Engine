@@ -21,6 +21,10 @@ function TrainModels() {
   const [nSynth, setNSynth] = useState(400);
   const [categoryTrainMode, setCategoryTrainMode] = useState("csv");
   const [categoryCsvFile, setCategoryCsvFile] = useState(null);
+  const [categoryAugment, setCategoryAugment] = useState(false);
+  const [categoryAugmentCopies, setCategoryAugmentCopies] = useState(3);
+  const [categoryAugmentNoise, setCategoryAugmentNoise] = useState(0.03);
+  const [categoryAugmentSeed, setCategoryAugmentSeed] = useState(42);
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);
   const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
@@ -323,6 +327,10 @@ function TrainModels() {
           }
           const formData = new FormData();
           formData.append("file", categoryCsvFile);
+          formData.append("augment", String(categoryAugment));
+          formData.append("copies_per_row", String(categoryAugmentCopies));
+          formData.append("noise_std", String(categoryAugmentNoise));
+          formData.append("seed", String(categoryAugmentSeed));
           response = await trainCategoryWithCsv(formData);
         } else {
           response = await trainCategoryWithSynth(nSynth);
@@ -335,8 +343,14 @@ function TrainModels() {
           status: "Trained",
           lastRun: new Date().toLocaleTimeString(),
         });
+        const sampleSummary =
+          response?.source === "csv" && response?.augmentation?.enabled
+            ? `Original: ${response?.original_samples ?? 0}, augmented: ${
+                response?.augmented_samples ?? 0
+              }, total: ${response?.n_samples ?? 0}.`
+            : `Samples: ${response?.n_samples ?? nSynth}.`;
         setConsoleText(
-          `Training complete. Samples: ${response?.n_samples ?? nSynth}.`
+          `Training complete. ${sampleSummary}`
         );
       } else if (modelType === "temp-detector") {
         const response = await trainTempDetectorSynth({
@@ -538,6 +552,84 @@ function TrainModels() {
                                 element_padding_x, element_padding_y,
                                 reduced_motion, target_size, tooltip_assist,
                                 layout_simplification.
+                              </div>
+                              <label className="mt-3 flex items-start gap-2 text-xs text-base-content/70">
+                                <input
+                                  type="checkbox"
+                                  className="checkbox checkbox-sm"
+                                  checked={categoryAugment}
+                                  onChange={(event) =>
+                                    setCategoryAugment(event.target.checked)
+                                  }
+                                />
+                                <span>
+                                  Add controlled augmentation for real CSV rows
+                                  by perturbing only the six probability
+                                  features.
+                                </span>
+                              </label>
+                              {categoryAugment ? (
+                                <div className="mt-3 grid grid-cols-3 gap-3">
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Copies / Row
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={20}
+                                      step={1}
+                                      value={categoryAugmentCopies}
+                                      onChange={(event) =>
+                                        setCategoryAugmentCopies(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Noise Std
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={0.005}
+                                      max={0.2}
+                                      step={0.005}
+                                      value={categoryAugmentNoise}
+                                      onChange={(event) =>
+                                        setCategoryAugmentNoise(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Seed
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={9999}
+                                      step={1}
+                                      value={categoryAugmentSeed}
+                                      onChange={(event) =>
+                                        setCategoryAugmentSeed(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                              <div className="mt-2 text-[11px] text-base-content/50">
+                                Recommended starting point: 3 copies per row
+                                with 0.03 noise. Avoid high noise unless labels
+                                still remain valid for nearby users.
                               </div>
                             </>
                           )}

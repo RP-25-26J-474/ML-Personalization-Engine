@@ -76,6 +76,30 @@ def weighted_aggregate(profiles: list[dict], weights: np.ndarray) -> dict:
     return out
 
 
+def augment_category_rows(
+    Xdicts: list[dict[str, float]],
+    profiles: list[dict],
+    copies_per_row: int = 3,
+    noise_std: float = 0.03,
+    seed: int = 42,
+) -> tuple[list[dict[str, float]], list[dict]]:
+    rng = np.random.default_rng(seed)
+    augmented_X = list(Xdicts)
+    augmented_profiles = list(profiles)
+
+    for features, profile in zip(Xdicts, profiles):
+        for _ in range(copies_per_row):
+            noisy_features: dict[str, float] = {}
+            for key in FEATURE_ORDER:
+                value = float(features[key])
+                noisy = value + float(rng.normal(0.0, noise_std))
+                noisy_features[key] = float(max(0.0, min(1.0, noisy)))
+            augmented_X.append(noisy_features)
+            augmented_profiles.append(dict(profile))
+
+    return augmented_X, augmented_profiles
+
+
 class CategoryEngineService:
     def __init__(
         self,
@@ -125,10 +149,29 @@ class CategoryEngineService:
         Xdicts, profiles = generate_synth_survey(n=n)
         self.train_from_data(Xdicts, profiles)
 
-    def train_from_data(self, Xdicts: list[dict[str, float]], profiles: list[dict]) -> None:
+    def train_from_data(
+        self,
+        Xdicts: list[dict[str, float]],
+        profiles: list[dict],
+        *,
+        augment: bool = False,
+        copies_per_row: int = 3,
+        noise_std: float = 0.03,
+        seed: int = 42,
+    ) -> int:
+        if augment:
+            Xdicts, profiles = augment_category_rows(
+                Xdicts,
+                profiles,
+                copies_per_row=copies_per_row,
+                noise_std=noise_std,
+                seed=seed,
+            )
+
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
         self.artifacts = train_knn(X, profiles, k=10, metric=CATEGORY_DISTANCE_METRIC)
         self._save_best()
+        return len(Xdicts)
 
     def _compute_confidence(self, avg_dist: float) -> float:
         if self.artifacts is None:

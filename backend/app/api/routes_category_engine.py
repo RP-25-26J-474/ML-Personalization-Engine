@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field, ValidationError
 import csv
 from io import StringIO
@@ -83,7 +83,28 @@ async def train_category_csv(
         description=(
             "UTF-8 CSV with required columns: onboarding features in FEATURE_ORDER and all ProfileKnobs fields."
         ),
-    )
+    ),
+    augment: bool = Form(
+        default=False,
+        description="Whether to create perturbed copies of each real row before fitting KNN.",
+    ),
+    copies_per_row: int = Form(
+        default=3,
+        ge=0,
+        le=20,
+        description="Number of augmented copies to create per original CSV row.",
+    ),
+    noise_std: float = Form(
+        default=0.03,
+        ge=0.0,
+        le=0.2,
+        description="Gaussian noise standard deviation applied to probability features.",
+    ),
+    seed: int = Form(
+        default=42,
+        ge=0,
+        description="Random seed used for deterministic augmentation.",
+    ),
 ):
     raw = await file.read()
     if not raw:
@@ -152,15 +173,30 @@ async def train_category_csv(
     if not Xdicts:
         raise HTTPException(status_code=400, detail="CSV has no data rows.")
 
-    container.category_engine.train_from_data(Xdicts, profiles)
+    n_total = container.category_engine.train_from_data(
+        Xdicts,
+        profiles,
+        augment=augment,
+        copies_per_row=copies_per_row,
+        noise_std=noise_std,
+        seed=seed,
+    )
     trained_at = now_iso()
     version = f"v{trained_at}"
     container.models_repo.category_model_version = version
-    container.models_repo.category_last_n_samples = len(Xdicts)
+    container.models_repo.category_last_n_samples = n_total
     container.models_repo.category_last_trained_at = trained_at
     return {
         "status": "trained",
-        "n_samples": len(Xdicts),
+        "n_samples": n_total,
+        "original_samples": len(Xdicts),
+        "augmented_samples": max(0, n_total - len(Xdicts)),
+        "augmentation": {
+            "enabled": augment,
+            "copies_per_row": copies_per_row if augment else 0,
+            "noise_std": noise_std if augment else 0.0,
+            "seed": seed,
+        },
         "artifact_key": "category_engine/category_best",
         "source": "csv",
         "version": version,
