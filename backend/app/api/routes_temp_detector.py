@@ -4,9 +4,37 @@ import numpy as np
 
 from app.api.wiring import container
 from app.core.schemas.interactions import InteractionBatch
+from app.core.storage.repos.temp_batches_repo import TempBatchRecord
 from app.core.utils.time import now_iso
 
 router = APIRouter()
+
+
+def _store_scored_batch(batch: InteractionBatch, res) -> None:
+    container.temp_batches_repo.add(
+        TempBatchRecord(
+            user_id=batch.user_id,
+            batch_id=batch.batch_id,
+            captured_at=batch.captured_at,
+            outcome=res.outcome,
+            anomaly_score=res.anomaly_score,
+            similarity_score=res.similarity_score,
+            heuristic_components=res.heuristic_components,
+            features=res.features,
+            payload=batch.model_dump(),
+        )
+    )
+
+
+def _feature_rows_from_templates(user_id: str | None, expected_width: int) -> list[list[float]]:
+    rows: list[list[float]] = []
+    for template in container.temp_baseline_repo.list_templates(user_id):
+        mean = list(template.get("mean") or [])
+        if len(mean) != expected_width:
+            continue
+        count = max(1, int(template.get("count") or 1))
+        rows.extend([mean] * count)
+    return rows
 
 
 class TempScoreResponse(BaseModel):
@@ -30,6 +58,7 @@ class TempScoreResponse(BaseModel):
 )
 def score_batch(batch: InteractionBatch):
     res = container.temp_detector.score_batch(batch)
+    _store_scored_batch(batch, res)
     if res.outcome == "keep":
         container.temp_detector.update_baseline(batch.user_id, res.features)
     return TempScoreResponse(
@@ -93,6 +122,7 @@ def score_batches(req: TempScoreBatchesRequest):
     rejected: list[TempScoreItem] = []
 
     for batch, res in zip(req.batches, results):
+        _store_scored_batch(batch, res)
         if res.outcome == "keep":
             container.temp_detector.update_baseline(batch.user_id, res.features)
 
@@ -219,18 +249,25 @@ def train_from_batches(req: TrainFromBatchesRequest):
     rows = [row for row in rows if row.outcome in allowed]
     expected_width = len(container.temp_detector.feature_order)
     rows = [row for row in rows if len(row.features) == expected_width]
+    feature_rows = [row.features for row in rows]
+    source = "stored_batches"
 
-    if len(rows) < req.min_samples:
+    if len(feature_rows) < req.min_samples and allowed == {"keep"}:
+        feature_rows = _feature_rows_from_templates(req.user_id, expected_width)
+        source = "baseline_templates"
+
+    if len(feature_rows) < req.min_samples:
         return {
             "status": "not_enough_samples",
-            "n_samples": len(rows),
+            "n_samples": len(feature_rows),
             "min_samples": req.min_samples,
             "outcomes": sorted(allowed),
             "user_id": req.user_id,
+            "source": source,
         }
 
     stats = container.temp_detector.train_from_feature_rows(
-        [row.features for row in rows],
+        feature_rows,
         contamination=req.contamination,
         quarantine_percentile=req.quarantine_percentile,
         reject_percentile=req.reject_percentile,
@@ -242,7 +279,7 @@ def train_from_batches(req: TrainFromBatchesRequest):
     return {
         "status": "trained",
         "version": version,
-        "source": "stored_batches",
+        "source": source,
         "outcomes": sorted(allowed),
         "user_id": req.user_id,
         **stats,
@@ -252,6 +289,7 @@ def train_from_batches(req: TrainFromBatchesRequest):
 class TempDetectorStatus(BaseModel):
     model_trained: bool
     model_version: str
+    n_estimators: int
     history: dict
     baselines: dict
     feature_order: list[str]
@@ -265,9 +303,12 @@ class TempDetectorStatus(BaseModel):
 )
 def status():
     history = container.temp_batches_repo.stats()
+    model = container.temp_detector.model
+    estimators = getattr(model, "estimators_", None) if model is not None else None
     return TempDetectorStatus(
-        model_trained=container.temp_detector.model is not None,
+        model_trained=model is not None,
         model_version=container.models_repo.global_iforest_version,
+        n_estimators=len(estimators or []),
         history=history,
         baselines=container.temp_baseline_repo.stats(),
         feature_order=list(container.temp_detector.feature_order),

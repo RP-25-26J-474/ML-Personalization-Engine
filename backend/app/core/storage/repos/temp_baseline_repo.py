@@ -98,6 +98,15 @@ class TempBaselineRepo:
             "updated_at": str(doc.get("_id").generation_time) if doc.get("_id") else None,
         }
 
+    def list_templates(self, user_id: str | None = None) -> list[dict]:
+        query = {"user_id": user_id} if user_id else {}
+        templates: list[dict] = []
+        for doc in self._col.find(query).sort([("user_id", 1)]):
+            template = self.get_template(str(doc.get("user_id", "")))
+            if template is not None:
+                templates.append(template)
+        return templates
+
     def set_template(self, user_id: str, count: int, mean: list[float], m2: list[float]) -> None:
         self._col.update_one(
             {"user_id": user_id},

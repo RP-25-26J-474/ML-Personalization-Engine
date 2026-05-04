@@ -62,6 +62,7 @@ function TrainModels() {
     quarantined: 0,
     rejected: 0,
     baselines: 0,
+    trees: 0,
     lastRun: "--",
   });
   const [userMetrics, setUserMetrics] = useState({
@@ -192,10 +193,11 @@ function TrainModels() {
           status: status?.model_trained ? "Ready" : "Untrained",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setConsoleText("Temporary detector status loaded.");
@@ -393,24 +395,34 @@ function TrainModels() {
             response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setTempForest(forest || { status: "idle", trees: [] });
         const calibrationText =
-          response?.source === "stored_batches"
+          response?.source === "stored_batches" ||
+          response?.source === "baseline_templates"
             ? ` Thresholds: quarantine ${Number(
                 response?.quarantine_threshold ?? 0
               ).toFixed(3)}, reject ${Number(
                 response?.reject_threshold ?? 0
               ).toFixed(3)}.`
             : "";
+        const sourceText =
+          response?.source === "baseline_templates"
+            ? " Source: baseline templates."
+            : response?.source === "stored_batches"
+            ? " Source: stored batches."
+            : "";
         setConsoleText(
           response?.status === "trained"
-            ? `Training complete. Samples: ${response?.n_samples ?? 0}.${calibrationText}`
+            ? `Training complete. Samples: ${
+                response?.n_samples ?? 0
+              }.${sourceText}${calibrationText}`
             : `Not enough samples to train (${response?.n_samples ?? 0}).`
         );
       } else if (modelType === "user") {
@@ -1061,7 +1073,7 @@ function TrainModels() {
                         Last run: {tempMetrics.lastRun}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-5 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Template Samples</div>
                         <div className="text-sm font-semibold">
@@ -1072,6 +1084,18 @@ function TrainModels() {
                         <div className="text-base-content/60">Template Users</div>
                         <div className="text-sm font-semibold">
                           {tempMetrics.baselines}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Stored Kept</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.kept}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Trees</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.trees}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
