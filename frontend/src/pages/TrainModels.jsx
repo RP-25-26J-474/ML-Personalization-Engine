@@ -296,7 +296,7 @@ function TrainModels() {
 
     const loadForest = async () => {
       try {
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
       } catch (error) {
@@ -389,7 +389,7 @@ function TrainModels() {
                 seed: tempSynthSeed,
               });
         const status = await getTempDetectorStatus();
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",

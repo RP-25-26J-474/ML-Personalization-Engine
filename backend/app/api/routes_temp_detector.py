@@ -380,15 +380,15 @@ def _serialize_tree(estimator, feature_names: list[str]) -> dict:
 @router.get(
     "/forest",
     summary="Inspect trained forest",
-    description="Serializes a subset of isolation-forest trees for debugging and visualization.",
+    description="Serializes trained isolation-forest trees for debugging and visualization.",
 )
-def forest(max_trees: int = Query(default=3, ge=1, le=20)):
+def forest(max_trees: int | None = Query(default=None, ge=1)):
     model = container.temp_detector.model
     if model is None:
         return {"status": "untrained", "trees": [], "n_estimators": 0}
 
     estimators = list(model.estimators_ or [])
-    count = min(max_trees, len(estimators))
+    count = len(estimators) if max_trees is None else min(max_trees, len(estimators))
     trees = [
         {
             "index": idx,
