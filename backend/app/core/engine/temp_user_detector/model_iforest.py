@@ -3,10 +3,10 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 
 
-def new_iforest() -> IsolationForest:
+def new_iforest(contamination: float = 0.10) -> IsolationForest:
     return IsolationForest(
         n_estimators=200,
-        contamination=0.10,
+        contamination=contamination,
         random_state=42,
     )
 

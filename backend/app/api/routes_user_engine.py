@@ -68,7 +68,7 @@ class TrainSeqModelRequest(BaseModel):
         default_factory=lambda: ["keep"],
         description="Outcome labels included when building training sequences.",
     )
-    min_users: int = Field(default=5, description="Minimum users required to start sequence training.")
+    min_users: int = Field(default=20, description="Minimum users required to start sequence training.")
     min_sequences: int = Field(default=20, description="Minimum sequence count required to train.")
     min_sequence_len: int = Field(default=2, description="Minimum batches per user sequence.")
     max_sequence_len: int = Field(default=20, description="Maximum batches retained per user sequence.")
@@ -86,6 +86,20 @@ class TrainSeqModelResponse(BaseModel):
     n_sequences: int
     n_clusters: int | None = None
     model_version: str | None = None
+
+
+class SequenceReadinessResponse(BaseModel):
+    ready: bool
+    n_users: int
+    n_sequences: int
+    min_users: int
+    min_sequences: int
+    min_sequence_len: int
+    max_sequence_len: int
+    outcome_filter: list[str]
+    total_batches: int
+    selected_batches: int
+    outcome_counts: dict[str, int]
 
 
 class FeedbackOverrideItem(BaseModel):
@@ -296,6 +310,44 @@ def _apply_feedback_overrides(user_id: str, payload: TriggerUpdateBody | None) -
     return applied, skipped
 
 
+def _build_user_sequences(
+    outcomes: list[str],
+    min_sequence_len: int,
+    max_sequence_len: int,
+) -> tuple[list[list[InteractionBatch]], dict[str, Any]]:
+    seq_autoencoder = _seq_autoencoder()
+    all_rows = container.temp_batches_repo.list_all()
+    outcome_counts = {"keep": 0, "quarantine": 0, "reject": 0}
+    for row in all_rows:
+        if row.outcome in outcome_counts:
+            outcome_counts[row.outcome] += 1
+
+    rows = all_rows
+    if outcomes:
+        allowed = set(outcomes)
+        rows = [row for row in rows if row.outcome in allowed]
+
+    users: dict[str, list] = {}
+    for row in rows:
+        users.setdefault(row.user_id, []).append(row)
+
+    sequences: list[list[InteractionBatch]] = []
+    for user_rows in users.values():
+        ordered = sorted(
+            user_rows,
+            key=lambda r: seq_autoencoder.parse_timestamp(r.captured_at),
+        )
+        batches = [InteractionBatch(**r.payload) for r in ordered]
+        if len(batches) >= min_sequence_len:
+            sequences.append(batches[-max_sequence_len:])
+
+    return sequences, {
+        "total_batches": len(all_rows),
+        "selected_batches": len(rows),
+        "outcome_counts": outcome_counts,
+    }
+
+
 @router.post(
     "/update-profile-batch",
     response_model=UserUpdateBatchResponse,
@@ -380,23 +432,11 @@ def trigger_update(
 )
 def train_seq_model(req: TrainSeqModelRequest):
     seq_autoencoder = _seq_autoencoder()
-    rows = container.temp_batches_repo.list_all()
-    if req.outcomes:
-        rows = [row for row in rows if row.outcome in set(req.outcomes)]
-
-    users: dict[str, list] = {}
-    for row in rows:
-        users.setdefault(row.user_id, []).append(row)
-
-    sequences = []
-    for user_rows in users.values():
-        ordered = sorted(
-            user_rows,
-            key=lambda r: seq_autoencoder.parse_timestamp(r.captured_at),
-        )
-        batches = [InteractionBatch(**r.payload) for r in ordered]
-        if len(batches) >= req.min_sequence_len:
-            sequences.append(batches[-req.max_sequence_len :])
+    sequences, _ = _build_user_sequences(
+        outcomes=req.outcomes,
+        min_sequence_len=req.min_sequence_len,
+        max_sequence_len=req.max_sequence_len,
+    )
 
     user_count = len(sequences)
     if user_count < req.min_users or len(sequences) < req.min_sequences:
@@ -436,6 +476,41 @@ def train_seq_model(req: TrainSeqModelRequest):
         n_sequences=train_stats["n_sequences"],
         n_clusters=train_stats["n_clusters"],
         model_version=version,
+    )
+
+
+@router.get(
+    "/sequence-readiness",
+    response_model=SequenceReadinessResponse,
+    summary="Get user sequence training readiness",
+    description="Returns the same trainable sequence counts used by the user sequence model trainer.",
+)
+def sequence_readiness(
+    outcomes: list[str] = Query(default=[]),
+    min_users: int = 20,
+    min_sequences: int = 20,
+    min_sequence_len: int = 2,
+    max_sequence_len: int = 20,
+):
+    sequences, stats = _build_user_sequences(
+        outcomes=list(outcomes),
+        min_sequence_len=min_sequence_len,
+        max_sequence_len=max_sequence_len,
+    )
+    n_users = len(sequences)
+    n_sequences = len(sequences)
+    return SequenceReadinessResponse(
+        ready=n_users >= min_users and n_sequences >= min_sequences,
+        n_users=n_users,
+        n_sequences=n_sequences,
+        min_users=min_users,
+        min_sequences=min_sequences,
+        min_sequence_len=min_sequence_len,
+        max_sequence_len=max_sequence_len,
+        outcome_filter=list(outcomes),
+        total_batches=int(stats["total_batches"]),
+        selected_batches=int(stats["selected_batches"]),
+        outcome_counts=stats["outcome_counts"],
     )
 
 
