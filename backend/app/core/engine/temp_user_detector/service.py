@@ -57,9 +57,9 @@ class TempUserDetectorService:
 
     def train_from_synth(self, n: int = 400, seed: int = 42) -> int:
         rows = generate_synth_interactions(n=n, seed=seed)
-        X = np.array([[row[k] for k in self.feature_order] for row in rows], dtype=float)
-        self.train_global(X)
-        return int(X.shape[0])
+        feature_rows = [[row[k] for k in self.feature_order] for row in rows]
+        stats = self.train_from_feature_rows(feature_rows)
+        return int(stats["n_samples"])
 
     def train_from_feature_rows(
         self,
@@ -76,7 +76,10 @@ class TempUserDetectorService:
             )
 
         self.train_global(X, contamination=contamination)
-        scores = np.array([score_anomaly(self.model, row) for row in X], dtype=float)
+        scores = np.array(
+            [self._combined_anomaly_score(row) for row in X],
+            dtype=float,
+        )
 
         p50 = float(np.percentile(scores, 50))
         p90 = float(np.percentile(scores, 90))
@@ -152,8 +155,7 @@ class TempUserDetectorService:
             )
         else:
             iforest_anomaly = score_anomaly(self.model, x)
-            # Use the more conservative signal to avoid hiding extreme cases in demo data.
-            anomaly = max(iforest_anomaly, heuristic_anomaly)
+            anomaly = self._combined_anomaly_score(x)
             actions.append(
                 TraceAction(
                     type="score_iforest",
@@ -246,16 +248,27 @@ class TempUserDetectorService:
         )
 
     def _heuristic_components(self, batch: InteractionBatch) -> dict[str, float]:
+        return self._heuristic_components_from_values(
+            {
+                "misclick_rate": batch.events_agg.misclick_rate,
+                "rage_clicks": batch.events_agg.rage_clicks,
+                "avg_click_interval_ms": batch.events_agg.avg_click_interval_ms,
+                "avg_dwell_ms": batch.events_agg.avg_dwell_ms,
+                "scroll_speed_px_s": batch.events_agg.scroll_speed_px_s,
+            }
+        )
+
+    def _heuristic_components_from_values(self, values: dict[str, float]) -> dict[str, float]:
         def norm(value: float, low: float, high: float) -> float:
             return self._norm(value, low, high)
 
         return {
-            "misclick_score": self._clamp01(batch.events_agg.misclick_rate),
-            "rage_score": self._clamp01(batch.events_agg.rage_clicks / 6.0),
+            "misclick_score": self._clamp01(values["misclick_rate"]),
+            "rage_score": self._clamp01(values["rage_clicks"] / 6.0),
             "click_interval_score": 1.0
-            - norm(batch.events_agg.avg_click_interval_ms, 150.0, 600.0),
-            "dwell_score": 1.0 - norm(batch.events_agg.avg_dwell_ms, 300.0, 2000.0),
-            "scroll_score": norm(batch.events_agg.scroll_speed_px_s, 200.0, 700.0),
+            - norm(values["avg_click_interval_ms"], 150.0, 600.0),
+            "dwell_score": 1.0 - norm(values["avg_dwell_ms"], 300.0, 2000.0),
+            "scroll_score": norm(values["scroll_speed_px_s"], 200.0, 700.0),
         }
 
     def _heuristic_anomaly_from_components(self, components: dict[str, float]) -> float:
@@ -267,6 +280,16 @@ class TempUserDetectorService:
             + 0.10 * components.get("scroll_score", 0.0)
         )
         return min(1.0, anomaly)
+
+    def _heuristic_anomaly_from_feature_row(self, row: np.ndarray) -> float:
+        values = {key: float(value) for key, value in zip(self.feature_order, row)}
+        components = self._heuristic_components_from_values(values)
+        return self._heuristic_anomaly_from_components(components)
+
+    def _combined_anomaly_score(self, row: np.ndarray) -> float:
+        iforest_anomaly = score_anomaly(self.model, row) if self.model is not None else 0.0
+        heuristic_anomaly = self._heuristic_anomaly_from_feature_row(row)
+        return max(iforest_anomaly, heuristic_anomaly)
 
     def _similarity_score(self, batch: InteractionBatch) -> float:
         e = batch.events_agg

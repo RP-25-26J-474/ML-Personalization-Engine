@@ -161,6 +161,22 @@ export function trainUserSeqModel(payload) {
   return postJson("/user/train-seq-model", payload);
 }
 
+export function getUserSequenceReadiness({
+  minUsers,
+  minSequences,
+  minSequenceLen,
+  maxSequenceLen,
+  outcomes = [],
+}) {
+  const params = new URLSearchParams();
+  params.set("min_users", String(minUsers));
+  params.set("min_sequences", String(minSequences));
+  params.set("min_sequence_len", String(minSequenceLen));
+  params.set("max_sequence_len", String(maxSequenceLen));
+  outcomes.forEach((outcome) => params.append("outcomes", outcome));
+  return getJson(`/user/sequence-readiness?${params.toString()}`);
+}
+
 export function getUserClusterMap({
   minSequenceLen,
   maxSequenceLen,
