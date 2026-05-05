@@ -7,8 +7,10 @@ import {
   getTempDetectorForest,
   getTempDetectorStatus,
   getUserClusterMap,
+  getUserSequenceReadiness,
   trainCategoryWithCsv,
   trainCategoryWithSynth,
+  trainTempDetectorFromBatches,
   trainTempDetectorSynth,
   trainUserSeqModel,
 } from "../services/api-services";
@@ -19,13 +21,24 @@ import Modal from "../components/modals/Modal";
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
   const [nSynth, setNSynth] = useState(400);
-  const [categoryTrainMode, setCategoryTrainMode] = useState("synth");
+  const [categoryTrainMode, setCategoryTrainMode] = useState("csv");
   const [categoryCsvFile, setCategoryCsvFile] = useState(null);
+  const [categoryAugment, setCategoryAugment] = useState(false);
+  const [categoryAugmentCopies, setCategoryAugmentCopies] = useState(3);
+  const [categoryAugmentNoise, setCategoryAugmentNoise] = useState(0.03);
+  const [categoryAugmentSeed, setCategoryAugmentSeed] = useState(42);
+  const [tempTrainMode, setTempTrainMode] = useState("synth");
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);
+  const [tempBatchOutcomes, setTempBatchOutcomes] = useState("keep");
+  const [tempBatchUserId, setTempBatchUserId] = useState("");
+  const [tempBatchMinSamples, setTempBatchMinSamples] = useState(50);
+  const [tempContamination, setTempContamination] = useState(0.1);
+  const [tempQuarantinePercentile, setTempQuarantinePercentile] = useState(95);
+  const [tempRejectPercentile, setTempRejectPercentile] = useState(99);
   const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
   const [userOutcomes, setUserOutcomes] = useState("keep");
-  const [userMinUsers, setUserMinUsers] = useState(5);
+  const [userMinUsers, setUserMinUsers] = useState(20);
   const [userMinSequences, setUserMinSequences] = useState(20);
   const [userMinSeqLen, setUserMinSeqLen] = useState(2);
   const [userMaxSeqLen, setUserMaxSeqLen] = useState(20);
@@ -50,6 +63,7 @@ function TrainModels() {
     quarantined: 0,
     rejected: 0,
     baselines: 0,
+    trees: 0,
     lastRun: "--",
   });
   const [userMetrics, setUserMetrics] = useState({
@@ -57,6 +71,7 @@ function TrainModels() {
     version: "--",
     users: 0,
     sequences: 0,
+    selectedBatches: 0,
     lastRun: "--",
   });
   const [userClusterMap, setUserClusterMap] = useState({
@@ -112,11 +127,16 @@ function TrainModels() {
       ? ["keep", "quarantine"]
       : ["keep"];
 
+  const tempOutcomesToList = (value) =>
+    value === "all"
+      ? ["keep", "quarantine", "reject"]
+      : value === "keep_quarantine"
+      ? ["keep", "quarantine"]
+      : ["keep"];
+
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "category") {
-      setPoints([]);
-      setMetrics((prev) => ({ ...prev, status: "Idle" }));
       return () => {
         cancelled = true;
       };
@@ -157,8 +177,6 @@ function TrainModels() {
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "temp-detector") {
-      setTempMetrics((prev) => ({ ...prev, status: "Idle" }));
-      setTempForest({ status: "idle", trees: [] });
       return () => {
         cancelled = true;
       };
@@ -173,10 +191,11 @@ function TrainModels() {
           status: status?.model_trained ? "Ready" : "Untrained",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setConsoleText("Temporary detector status loaded.");
@@ -200,16 +219,6 @@ function TrainModels() {
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "user") {
-      setUserMetrics((prev) => ({ ...prev, status: "Idle" }));
-      setUserClusterMap({
-        status: "idle",
-        model_version: "v0",
-        n_points: 0,
-        n_clusters: 0,
-        outcome_filter: [],
-        points: [],
-        clusters: [],
-      });
       return () => {
         cancelled = true;
       };
@@ -219,8 +228,14 @@ function TrainModels() {
       setConsoleText("Loading user engine status...");
       try {
         const status = await getDashboardStatus();
-        const tempStatus = await getTempDetectorStatus();
         const outcomes = userOutcomesToList(userOutcomes);
+        const readiness = await getUserSequenceReadiness({
+          minUsers: userMinUsers,
+          minSequences: userMinSequences,
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         const clusterMap = await getUserClusterMap({
           minSequenceLen: userMinSeqLen,
           maxSequenceLen: userMaxSeqLen,
@@ -229,10 +244,16 @@ function TrainModels() {
         if (cancelled) return;
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
-          status: version !== "v0" ? "Ready" : "Untrained",
+          status:
+            version !== "v0"
+              ? "Ready"
+              : readiness?.ready
+              ? "Ready to train"
+              : "Not enough data",
           version,
-          users: tempStatus?.baselines?.users ?? 0,
-          sequences: tempStatus?.baselines?.total_samples ?? 0,
+          users: readiness?.n_users ?? 0,
+          sequences: readiness?.n_sequences ?? 0,
+          selectedBatches: readiness?.selected_batches ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -263,7 +284,14 @@ function TrainModels() {
     return () => {
       cancelled = true;
     };
-  }, [modelType, userOutcomes, userMinSeqLen, userMaxSeqLen]);
+  }, [
+    modelType,
+    userOutcomes,
+    userMinUsers,
+    userMinSequences,
+    userMinSeqLen,
+    userMaxSeqLen,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -275,10 +303,10 @@ function TrainModels() {
 
     const loadForest = async () => {
       try {
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
-      } catch (error) {
+      } catch {
         if (cancelled) return;
         setTempForest({ status: "failed", trees: [] });
       }
@@ -308,7 +336,11 @@ function TrainModels() {
       setConsoleText("Training User Engine (sequence autoencoder)...");
       setUserMetrics((prev) => ({ ...prev, status: "Training..." }));
     } else {
-      setConsoleText("Training Temporary User Detector from synthetic data...");
+      setConsoleText(
+        tempTrainMode === "stored"
+          ? "Training Temporary User Detector from stored batches..."
+          : "Training Temporary User Detector from synthetic data..."
+      );
       setTempMetrics((prev) => ({ ...prev, status: "Training..." }));
     }
 
@@ -323,6 +355,10 @@ function TrainModels() {
           }
           const formData = new FormData();
           formData.append("file", categoryCsvFile);
+          formData.append("augment", String(categoryAugment));
+          formData.append("copies_per_row", String(categoryAugmentCopies));
+          formData.append("noise_std", String(categoryAugmentNoise));
+          formData.append("seed", String(categoryAugmentSeed));
           response = await trainCategoryWithCsv(formData);
         } else {
           response = await trainCategoryWithSynth(nSynth);
@@ -335,31 +371,65 @@ function TrainModels() {
           status: "Trained",
           lastRun: new Date().toLocaleTimeString(),
         });
+        const sampleSummary =
+          response?.source === "csv" && response?.augmentation?.enabled
+            ? `Original: ${response?.original_samples ?? 0}, augmented: ${
+                response?.augmented_samples ?? 0
+              }, total: ${response?.n_samples ?? 0}.`
+            : `Samples: ${response?.n_samples ?? nSynth}.`;
         setConsoleText(
-          `Training complete. Samples: ${response?.n_samples ?? nSynth}.`
+          `Training complete. ${sampleSummary}`
         );
       } else if (modelType === "temp-detector") {
-        const response = await trainTempDetectorSynth({
-          n_samples: tempSynthSamples,
-          seed: tempSynthSeed,
-        });
+        const response =
+          tempTrainMode === "stored"
+            ? await trainTempDetectorFromBatches({
+                user_id: tempBatchUserId.trim() || null,
+                outcomes: tempOutcomesToList(tempBatchOutcomes),
+                min_samples: tempBatchMinSamples,
+                contamination: tempContamination,
+                quarantine_percentile: tempQuarantinePercentile,
+                reject_percentile: tempRejectPercentile,
+              })
+            : await trainTempDetectorSynth({
+                n_samples: tempSynthSamples,
+                seed: tempSynthSeed,
+              });
         const status = await getTempDetectorStatus();
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setTempForest(forest || { status: "idle", trees: [] });
+        const calibrationText =
+          response?.source === "stored_batches" ||
+          response?.source === "baseline_templates"
+            ? ` Thresholds: quarantine ${Number(
+                response?.quarantine_threshold ?? 0
+              ).toFixed(3)}, reject ${Number(
+                response?.reject_threshold ?? 0
+              ).toFixed(3)}.`
+            : "";
+        const sourceText =
+          response?.source === "baseline_templates"
+            ? " Source: baseline templates."
+            : response?.source === "stored_batches"
+            ? " Source: stored batches."
+            : "";
         setConsoleText(
           response?.status === "trained"
-            ? `Training complete. Samples: ${response?.n_samples ?? 0}.`
+            ? `Training complete. Samples: ${
+                response?.n_samples ?? 0
+              }.${sourceText}${calibrationText}`
             : `Not enough samples to train (${response?.n_samples ?? 0}).`
         );
       } else if (modelType === "user") {
@@ -376,7 +446,13 @@ function TrainModels() {
           batch_size: userBatchSize,
         });
         const status = await getDashboardStatus();
-        const tempStatus = await getTempDetectorStatus();
+        const readiness = await getUserSequenceReadiness({
+          minUsers: userMinUsers,
+          minSequences: userMinSequences,
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         const clusterMap = await getUserClusterMap({
           minSequenceLen: userMinSeqLen,
           maxSequenceLen: userMaxSeqLen,
@@ -387,8 +463,9 @@ function TrainModels() {
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version,
-          users: tempStatus?.baselines?.users ?? 0,
-          sequences: tempStatus?.baselines?.total_samples ?? 0,
+          users: readiness?.n_users ?? response?.n_users ?? 0,
+          sequences: readiness?.n_sequences ?? response?.n_sequences ?? 0,
+          selectedBatches: readiness?.selected_batches ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -405,7 +482,11 @@ function TrainModels() {
         setConsoleText(
           response?.status === "trained"
             ? `Training complete. Sequences: ${response?.n_sequences ?? 0}.`
-            : `Not enough sequences to train (${response?.n_sequences ?? 0}).`
+            : `Not enough data to train. Trainable users: ${
+                response?.n_users ?? 0
+              }/${userMinUsers}, trainable sequences: ${
+                response?.n_sequences ?? 0
+              }/${userMinSequences}.`
         );
       }
     } catch (error) {
@@ -444,10 +525,24 @@ function TrainModels() {
   const userStatusTone = useMemo(() => {
     if (userMetrics.status === "Training...") return "text-warning";
     if (userMetrics.status === "Trained") return "text-success";
+    if (userMetrics.status === "Ready" || userMetrics.status === "Ready to train")
+      return "text-success";
     if (userMetrics.status === "Failed") return "text-error";
     if (userMetrics.status === "Untrained") return "text-warning";
+    if (userMetrics.status === "Not enough data") return "text-warning";
     return "text-base-content/70";
   }, [userMetrics.status]);
+
+  const trainingReadinessText =
+    modelType === "user"
+      ? userMetrics.status === "Ready" ||
+        userMetrics.status === "Ready to train" ||
+        userMetrics.status === "Trained"
+        ? "Sequence data ready"
+        : `Need ${Math.max(userMinUsers, userMinSequences)} trainable users`
+      : canTrain
+      ? "Ready for training"
+      : "Training not available";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -539,6 +634,84 @@ function TrainModels() {
                                 reduced_motion, target_size, tooltip_assist,
                                 layout_simplification.
                               </div>
+                              <label className="mt-3 flex items-start gap-2 text-xs text-base-content/70">
+                                <input
+                                  type="checkbox"
+                                  className="checkbox checkbox-sm"
+                                  checked={categoryAugment}
+                                  onChange={(event) =>
+                                    setCategoryAugment(event.target.checked)
+                                  }
+                                />
+                                <span>
+                                  Add controlled augmentation for real CSV rows
+                                  by perturbing only the six probability
+                                  features.
+                                </span>
+                              </label>
+                              {categoryAugment ? (
+                                <div className="mt-3 grid grid-cols-3 gap-3">
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Copies / Row
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={20}
+                                      step={1}
+                                      value={categoryAugmentCopies}
+                                      onChange={(event) =>
+                                        setCategoryAugmentCopies(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Noise Std
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={0.005}
+                                      max={0.2}
+                                      step={0.005}
+                                      value={categoryAugmentNoise}
+                                      onChange={(event) =>
+                                        setCategoryAugmentNoise(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-base-content/60">
+                                      Seed
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={9999}
+                                      step={1}
+                                      value={categoryAugmentSeed}
+                                      onChange={(event) =>
+                                        setCategoryAugmentSeed(
+                                          Number(event.target.value)
+                                        )
+                                      }
+                                      className="input input-bordered w-full mt-2"
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                              <div className="mt-2 text-[11px] text-base-content/50">
+                                Recommended starting point: 3 copies per row
+                                with 0.03 noise. Avoid high noise unless labels
+                                still remain valid for nearby users.
+                              </div>
                             </>
                           )}
                         </div>
@@ -547,40 +720,170 @@ function TrainModels() {
                       {modelType === "temp-detector" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3 flex flex-col gap-3">
                           <div className="text-xs text-base-content/60">
-                            Template-only mode: training uses synthetic samples.
+                            Training Source
                           </div>
-                          <div>
-                            <div className="text-xs text-base-content/60">
-                              Synthetic Samples
-                            </div>
-                            <input
-                              type="number"
-                              min={50}
-                              max={2000}
-                              step={50}
-                              value={tempSynthSamples}
-                              onChange={(event) =>
-                                setTempSynthSamples(Number(event.target.value))
-                              }
-                              className="input input-bordered w-full mt-2"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-xs text-base-content/60">
-                              Seed
-                            </div>
-                            <input
-                              type="number"
-                              min={0}
-                              max={9999}
-                              step={1}
-                              value={tempSynthSeed}
-                              onChange={(event) =>
-                                setTempSynthSeed(Number(event.target.value))
-                              }
-                              className="input input-bordered w-full mt-2"
-                            />
-                          </div>
+                          <select
+                            className="select select-bordered w-full"
+                            value={tempTrainMode}
+                            onChange={(event) =>
+                              setTempTrainMode(event.target.value)
+                            }
+                          >
+                            <option value="synth">Synthetic bootstrap data</option>
+                            <option value="stored">Stored real batches</option>
+                          </select>
+                          {tempTrainMode === "synth" ? (
+                            <>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Synthetic Samples
+                                </div>
+                                <input
+                                  type="number"
+                                  min={50}
+                                  max={2000}
+                                  step={50}
+                                  value={tempSynthSamples}
+                                  onChange={(event) =>
+                                    setTempSynthSamples(
+                                      Number(event.target.value)
+                                    )
+                                  }
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Seed
+                                </div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={9999}
+                                  step={1}
+                                  value={tempSynthSeed}
+                                  onChange={(event) =>
+                                    setTempSynthSeed(Number(event.target.value))
+                                  }
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Outcomes
+                                </div>
+                                <select
+                                  className="select select-bordered w-full mt-2"
+                                  value={tempBatchOutcomes}
+                                  onChange={(event) =>
+                                    setTempBatchOutcomes(event.target.value)
+                                  }
+                                >
+                                  <option value="keep">Kept batches</option>
+                                  <option value="keep_quarantine">
+                                    Keep + Quarantine
+                                  </option>
+                                  <option value="all">All outcomes</option>
+                                </select>
+                              </div>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Optional User ID
+                                </div>
+                                <input
+                                  type="text"
+                                  value={tempBatchUserId}
+                                  onChange={(event) =>
+                                    setTempBatchUserId(event.target.value)
+                                  }
+                                  placeholder="Leave empty for all users"
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Min Samples
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={10000}
+                                    step={1}
+                                    value={tempBatchMinSamples}
+                                    onChange={(event) =>
+                                      setTempBatchMinSamples(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Contamination
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={0.001}
+                                    max={0.5}
+                                    step={0.01}
+                                    value={tempContamination}
+                                    onChange={(event) =>
+                                      setTempContamination(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Quarantine Pctl
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={50}
+                                    max={99.9}
+                                    step={0.5}
+                                    value={tempQuarantinePercentile}
+                                    onChange={(event) =>
+                                      setTempQuarantinePercentile(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Reject Pctl
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={50}
+                                    max={99.99}
+                                    step={0.5}
+                                    value={tempRejectPercentile}
+                                    onChange={(event) =>
+                                      setTempRejectPercentile(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                              </div>
+                              <div className="text-[11px] text-base-content/50">
+                                Recommended: train from kept batches first.
+                                Thresholds are calibrated from the selected
+                                stored-batch score distribution.
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : null}
                       {modelType === "user" ? (
@@ -743,10 +1046,15 @@ function TrainModels() {
 
                     <div className="flex items-center justify-between gap-3 mt-auto">
                       <div className="flex items-center gap-2 text-xs text-base-content/60">
-                        <span className="w-2 h-2 rounded-full bg-success/70"></span>
-                        {canTrain
-                          ? "Ready for training"
-                          : "Training not available"}
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            modelType === "user" &&
+                            userMetrics.status === "Not enough data"
+                              ? "bg-warning/70"
+                              : "bg-success/70"
+                          }`}
+                        ></span>
+                        {trainingReadinessText}
                       </div>
                       <div className="flex items-center gap-2">
                         {modelType === "category" ? (
@@ -802,7 +1110,7 @@ function TrainModels() {
                         Last run: {tempMetrics.lastRun}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-5 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Template Samples</div>
                         <div className="text-sm font-semibold">
@@ -813,6 +1121,18 @@ function TrainModels() {
                         <div className="text-base-content/60">Template Users</div>
                         <div className="text-sm font-semibold">
                           {tempMetrics.baselines}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Stored Kept</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.kept}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Trees</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.trees}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
@@ -843,17 +1163,23 @@ function TrainModels() {
                         Last run: {userMetrics.lastRun}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Users</div>
+                        <div className="text-base-content/60">Trainable Users</div>
                         <div className="text-sm font-semibold">
                           {userMetrics.users}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Sequences</div>
+                        <div className="text-base-content/60">Trainable Seq</div>
                         <div className="text-sm font-semibold">
                           {userMetrics.sequences}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Selected Batches</div>
+                        <div className="text-sm font-semibold">
+                          {userMetrics.selectedBatches}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">

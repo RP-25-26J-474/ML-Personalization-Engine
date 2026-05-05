@@ -48,17 +48,69 @@ class TempUserDetectorService:
         self.quarantine_threshold = 0.55  # demo threshold (tune later)
         self.reject_threshold = 0.75  # hard reject for high anomaly
         self.feature_order = list(FEATURE_ORDER)
+        self._load_thresholds()
 
-    def train_global(self, feature_matrix: np.ndarray) -> None:
-        self.model = new_iforest()
+    def train_global(self, feature_matrix: np.ndarray, contamination: float = 0.10) -> None:
+        self.model = new_iforest(contamination=contamination)
         self.model.fit(feature_matrix)
         self._save_best()
 
     def train_from_synth(self, n: int = 400, seed: int = 42) -> int:
         rows = generate_synth_interactions(n=n, seed=seed)
-        X = np.array([[row[k] for k in self.feature_order] for row in rows], dtype=float)
-        self.train_global(X)
-        return int(X.shape[0])
+        feature_rows = [[row[k] for k in self.feature_order] for row in rows]
+        stats = self.train_from_feature_rows(feature_rows)
+        return int(stats["n_samples"])
+
+    def train_from_feature_rows(
+        self,
+        feature_rows: list[list[float]],
+        *,
+        contamination: float = 0.10,
+        quarantine_percentile: float = 95.0,
+        reject_percentile: float = 99.0,
+    ) -> dict[str, Any]:
+        X = np.array(feature_rows, dtype=float)
+        if X.ndim != 2 or X.shape[1] != len(self.feature_order):
+            raise ValueError(
+                f"feature rows must have shape (n, {len(self.feature_order)})"
+            )
+
+        self.train_global(X, contamination=contamination)
+        scores = np.array(
+            [self._combined_anomaly_score(row) for row in X],
+            dtype=float,
+        )
+
+        p50 = float(np.percentile(scores, 50))
+        p90 = float(np.percentile(scores, 90))
+        p95 = float(np.percentile(scores, 95))
+        p99 = float(np.percentile(scores, 99))
+        quarantine = float(np.percentile(scores, quarantine_percentile))
+        reject = float(np.percentile(scores, reject_percentile))
+
+        quarantine = max(0.30, min(0.90, quarantine))
+        reject = max(quarantine + 0.05, min(0.98, reject))
+
+        self.quarantine_threshold = quarantine
+        self.reject_threshold = reject
+        self._save_thresholds()
+
+        return {
+            "n_samples": int(X.shape[0]),
+            "contamination": float(contamination),
+            "quarantine_threshold": quarantine,
+            "reject_threshold": reject,
+            "score_percentiles": {
+                "p50": p50,
+                "p90": p90,
+                "p95": p95,
+                "p99": p99,
+            },
+            "calibration": {
+                "quarantine_percentile": float(quarantine_percentile),
+                "reject_percentile": float(reject_percentile),
+            },
+        }
 
     def score_batch(self, batch: InteractionBatch) -> TempFilterResult:
         return self._score_batch_internal(batch)
@@ -103,8 +155,7 @@ class TempUserDetectorService:
             )
         else:
             iforest_anomaly = score_anomaly(self.model, x)
-            # Use the more conservative signal to avoid hiding extreme cases in demo data.
-            anomaly = max(iforest_anomaly, heuristic_anomaly)
+            anomaly = self._combined_anomaly_score(x)
             actions.append(
                 TraceAction(
                     type="score_iforest",
@@ -173,17 +224,51 @@ class TempUserDetectorService:
         if self.model is not None:
             self.artifact_store.save("temp_detector/iforest_best", self.model)
 
+    def _load_thresholds(self) -> None:
+        thresholds = self.artifact_store.load("temp_detector/thresholds_best")
+        if not isinstance(thresholds, dict):
+            return
+        try:
+            quarantine = float(thresholds["quarantine_threshold"])
+            reject = float(thresholds["reject_threshold"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if 0.0 <= quarantine <= 1.0 and 0.0 <= reject <= 1.0 and quarantine < reject:
+            self.quarantine_threshold = quarantine
+            self.reject_threshold = reject
+
+    def _save_thresholds(self) -> None:
+        self.artifact_store.save(
+            "temp_detector/thresholds_best",
+            {
+                "quarantine_threshold": self.quarantine_threshold,
+                "reject_threshold": self.reject_threshold,
+                "feature_order": self.feature_order,
+            },
+        )
+
     def _heuristic_components(self, batch: InteractionBatch) -> dict[str, float]:
+        return self._heuristic_components_from_values(
+            {
+                "misclick_rate": batch.events_agg.misclick_rate,
+                "rage_clicks": batch.events_agg.rage_clicks,
+                "avg_click_interval_ms": batch.events_agg.avg_click_interval_ms,
+                "avg_dwell_ms": batch.events_agg.avg_dwell_ms,
+                "scroll_speed_px_s": batch.events_agg.scroll_speed_px_s,
+            }
+        )
+
+    def _heuristic_components_from_values(self, values: dict[str, float]) -> dict[str, float]:
         def norm(value: float, low: float, high: float) -> float:
             return self._norm(value, low, high)
 
         return {
-            "misclick_score": self._clamp01(batch.events_agg.misclick_rate),
-            "rage_score": self._clamp01(batch.events_agg.rage_clicks / 6.0),
+            "misclick_score": self._clamp01(values["misclick_rate"]),
+            "rage_score": self._clamp01(values["rage_clicks"] / 6.0),
             "click_interval_score": 1.0
-            - norm(batch.events_agg.avg_click_interval_ms, 150.0, 600.0),
-            "dwell_score": 1.0 - norm(batch.events_agg.avg_dwell_ms, 300.0, 2000.0),
-            "scroll_score": norm(batch.events_agg.scroll_speed_px_s, 200.0, 700.0),
+            - norm(values["avg_click_interval_ms"], 150.0, 600.0),
+            "dwell_score": 1.0 - norm(values["avg_dwell_ms"], 300.0, 2000.0),
+            "scroll_score": norm(values["scroll_speed_px_s"], 200.0, 700.0),
         }
 
     def _heuristic_anomaly_from_components(self, components: dict[str, float]) -> float:
@@ -195,6 +280,16 @@ class TempUserDetectorService:
             + 0.10 * components.get("scroll_score", 0.0)
         )
         return min(1.0, anomaly)
+
+    def _heuristic_anomaly_from_feature_row(self, row: np.ndarray) -> float:
+        values = {key: float(value) for key, value in zip(self.feature_order, row)}
+        components = self._heuristic_components_from_values(values)
+        return self._heuristic_anomaly_from_components(components)
+
+    def _combined_anomaly_score(self, row: np.ndarray) -> float:
+        iforest_anomaly = score_anomaly(self.model, row) if self.model is not None else 0.0
+        heuristic_anomaly = self._heuristic_anomaly_from_feature_row(row)
+        return max(iforest_anomaly, heuristic_anomaly)
 
     def _similarity_score(self, batch: InteractionBatch) -> float:
         e = batch.events_agg

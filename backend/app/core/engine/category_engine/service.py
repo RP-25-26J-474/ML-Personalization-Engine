@@ -18,6 +18,7 @@ from app.core.engine.category_engine.synth_data import generate_synth_survey
 from app.core.storage.artifact_registry.artifact_store import ArtifactStore
 
 CATEGORY_BEST_KEY = "category_engine/category_best"
+CATEGORY_DISTANCE_METRIC = "euclidean"
 
 
 @dataclass
@@ -75,6 +76,30 @@ def weighted_aggregate(profiles: list[dict], weights: np.ndarray) -> dict:
     return out
 
 
+def augment_category_rows(
+    Xdicts: list[dict[str, float]],
+    profiles: list[dict],
+    copies_per_row: int = 3,
+    noise_std: float = 0.03,
+    seed: int = 42,
+) -> tuple[list[dict[str, float]], list[dict]]:
+    rng = np.random.default_rng(seed)
+    augmented_X = list(Xdicts)
+    augmented_profiles = list(profiles)
+
+    for features, profile in zip(Xdicts, profiles):
+        for _ in range(copies_per_row):
+            noisy_features: dict[str, float] = {}
+            for key in FEATURE_ORDER:
+                value = float(features[key])
+                noisy = value + float(rng.normal(0.0, noise_std))
+                noisy_features[key] = float(max(0.0, min(1.0, noisy)))
+            augmented_X.append(noisy_features)
+            augmented_profiles.append(dict(profile))
+
+    return augmented_X, augmented_profiles
+
+
 class CategoryEngineService:
     def __init__(
         self,
@@ -93,11 +118,28 @@ class CategoryEngineService:
         if self.artifacts is not None:
             self.artifact_store.save(CATEGORY_BEST_KEY, self.artifacts)
 
+    def _ensure_current_metric(self) -> None:
+        if self.artifacts is None:
+            return
+
+        if getattr(self.artifacts, "metric", "cosine") == CATEGORY_DISTANCE_METRIC:
+            return
+
+        k = int(getattr(self.artifacts.nn, "n_neighbors", 10))
+        self.artifacts = train_knn(
+            self.artifacts.X,
+            self.artifacts.profiles,
+            k=k,
+            metric=CATEGORY_DISTANCE_METRIC,
+        )
+        self._save_best()
+
     def _ensure_artifacts(self, n: int = 400) -> None:
         if self.artifacts is None:
             self.artifacts = self._load_best()
         if self.artifacts is None:
             self.train_from_synth(n=n)
+        self._ensure_current_metric()
 
     def get_artifacts(self, n: int = 400) -> KNNArtifacts:
         self._ensure_artifacts(n=n)
@@ -107,28 +149,65 @@ class CategoryEngineService:
         Xdicts, profiles = generate_synth_survey(n=n)
         self.train_from_data(Xdicts, profiles)
 
-    def train_from_data(self, Xdicts: list[dict[str, float]], profiles: list[dict]) -> None:
+    def train_from_data(
+        self,
+        Xdicts: list[dict[str, float]],
+        profiles: list[dict],
+        *,
+        augment: bool = False,
+        copies_per_row: int = 3,
+        noise_std: float = 0.03,
+        seed: int = 42,
+    ) -> int:
+        if augment:
+            Xdicts, profiles = augment_category_rows(
+                Xdicts,
+                profiles,
+                copies_per_row=copies_per_row,
+                noise_std=noise_std,
+                seed=seed,
+            )
+
         X = np.array([[d[k] for k in FEATURE_ORDER] for d in Xdicts], dtype=float)
-        self.artifacts = train_knn(X, profiles, k=10, metric="cosine")
+        self.artifacts = train_knn(X, profiles, k=10, metric=CATEGORY_DISTANCE_METRIC)
         self._save_best()
+        return len(Xdicts)
 
     def _compute_confidence(self, avg_dist: float) -> float:
         if self.artifacts is None:
             return 0.0
 
+        if not np.isfinite(avg_dist):
+            return 0.0
+
+        distance_scale = float(getattr(self.artifacts, "distance_scale", 1.0) or 1.0)
+        normalized_dist = avg_dist / distance_scale
+        # This absolute coverage term makes confidence improve as the retrieved
+        # neighbors get closer, independent of training-set size.
+        coverage_confidence = 1.0 - max(0.0, min(1.0, normalized_dist))
+
         baseline_mean = getattr(self.artifacts, "train_neighbor_distance_mean", None)
         baseline_std = getattr(self.artifacts, "train_neighbor_distance_std", None)
+        n_samples = int(getattr(self.artifacts, "n_samples", 0) or len(self.artifacts.X))
 
         if baseline_mean is None:
-            return float(max(0.0, min(1.0, 1.0 - avg_dist)))
+            return float(max(0.0, min(1.0, coverage_confidence)))
 
         if not baseline_std or baseline_std <= 1e-9:
-            return 1.0 if avg_dist <= baseline_mean else 0.0
+            relative_confidence = 1.0 if avg_dist <= baseline_mean else 0.0
+        else:
+            # Avoid over-penalizing normal queries as synthetic sample count
+            # grows and the training-neighborhood standard deviation shrinks.
+            scale = max(float(baseline_std), float(baseline_mean) * 0.75, 0.05)
+            z = (float(baseline_mean) - avg_dist) / scale
+            relative_confidence = 1.0 / (1.0 + np.exp(-z))
 
-        # Calibrate against the trained vector space so confidence remains stable
-        # when feature dimensionality or data distribution changes.
-        z = (baseline_mean - avg_dist) / baseline_std
-        confidence = 1.0 / (1.0 + np.exp(-z))
+        sample_confidence = 1.0 - np.exp(-n_samples / 100.0) if n_samples > 0 else 0.0
+        confidence = (
+            0.70 * coverage_confidence
+            + 0.20 * relative_confidence
+            + 0.10 * sample_confidence
+        )
         return float(max(0.0, min(1.0, confidence)))
 
     def generate(self, onboarding: OnboardingResult) -> CategoryResult:
@@ -152,7 +231,8 @@ class CategoryEngineService:
 
         nearest_distance = float(np.min(dists))
         nearest_idx = int(idxs[int(np.argmin(dists))])
-        nearest_similarity = float(max(0.0, min(1.0, 1.0 - nearest_distance)))
+        distance_scale = float(getattr(self.artifacts, "distance_scale", 1.0) or 1.0)
+        nearest_similarity = float(max(0.0, min(1.0, 1.0 - (nearest_distance / distance_scale))))
 
         neighbor_profiles = [self.artifacts.profiles[i] for i in idxs]
         agg = weighted_aggregate(neighbor_profiles, weights)
@@ -176,6 +256,8 @@ class CategoryEngineService:
                 "avg_neighbor_distance": avg_dist,
                 "train_neighbor_distance_mean": getattr(self.artifacts, "train_neighbor_distance_mean", None),
                 "train_neighbor_distance_std": getattr(self.artifacts, "train_neighbor_distance_std", None),
+                "distance_metric": getattr(self.artifacts, "metric", CATEGORY_DISTANCE_METRIC),
+                "distance_scale": getattr(self.artifacts, "distance_scale", None),
                 "nearest_neighbor_distance": nearest_distance,
                 "nearest_neighbor_similarity": nearest_similarity,
                 "confidence_overall": confidence,
