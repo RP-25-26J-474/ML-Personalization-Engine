@@ -7,6 +7,7 @@ import {
   getTempDetectorForest,
   getTempDetectorStatus,
   getUserClusterMap,
+  getUserSequenceReadiness,
   trainCategoryWithCsv,
   trainCategoryWithSynth,
   trainTempDetectorFromBatches,
@@ -70,6 +71,7 @@ function TrainModels() {
     version: "--",
     users: 0,
     sequences: 0,
+    selectedBatches: 0,
     lastRun: "--",
   });
   const [userClusterMap, setUserClusterMap] = useState({
@@ -135,8 +137,6 @@ function TrainModels() {
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "category") {
-      setPoints([]);
-      setMetrics((prev) => ({ ...prev, status: "Idle" }));
       return () => {
         cancelled = true;
       };
@@ -177,8 +177,6 @@ function TrainModels() {
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "temp-detector") {
-      setTempMetrics((prev) => ({ ...prev, status: "Idle" }));
-      setTempForest({ status: "idle", trees: [] });
       return () => {
         cancelled = true;
       };
@@ -221,16 +219,6 @@ function TrainModels() {
   useEffect(() => {
     let cancelled = false;
     if (modelType !== "user") {
-      setUserMetrics((prev) => ({ ...prev, status: "Idle" }));
-      setUserClusterMap({
-        status: "idle",
-        model_version: "v0",
-        n_points: 0,
-        n_clusters: 0,
-        outcome_filter: [],
-        points: [],
-        clusters: [],
-      });
       return () => {
         cancelled = true;
       };
@@ -240,8 +228,14 @@ function TrainModels() {
       setConsoleText("Loading user engine status...");
       try {
         const status = await getDashboardStatus();
-        const tempStatus = await getTempDetectorStatus();
         const outcomes = userOutcomesToList(userOutcomes);
+        const readiness = await getUserSequenceReadiness({
+          minUsers: userMinUsers,
+          minSequences: userMinSequences,
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         const clusterMap = await getUserClusterMap({
           minSequenceLen: userMinSeqLen,
           maxSequenceLen: userMaxSeqLen,
@@ -250,10 +244,16 @@ function TrainModels() {
         if (cancelled) return;
         const version = status?.models?.user_seq_model_version || "v0";
         setUserMetrics({
-          status: version !== "v0" ? "Ready" : "Untrained",
+          status:
+            version !== "v0"
+              ? "Ready"
+              : readiness?.ready
+              ? "Ready to train"
+              : "Not enough data",
           version,
-          users: tempStatus?.baselines?.users ?? 0,
-          sequences: tempStatus?.baselines?.total_samples ?? 0,
+          users: readiness?.n_users ?? 0,
+          sequences: readiness?.n_sequences ?? 0,
+          selectedBatches: readiness?.selected_batches ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -284,7 +284,14 @@ function TrainModels() {
     return () => {
       cancelled = true;
     };
-  }, [modelType, userOutcomes, userMinSeqLen, userMaxSeqLen]);
+  }, [
+    modelType,
+    userOutcomes,
+    userMinUsers,
+    userMinSequences,
+    userMinSeqLen,
+    userMaxSeqLen,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,7 +306,7 @@ function TrainModels() {
         const forest = await getTempDetectorForest();
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
-      } catch (error) {
+      } catch {
         if (cancelled) return;
         setTempForest({ status: "failed", trees: [] });
       }
@@ -439,7 +446,13 @@ function TrainModels() {
           batch_size: userBatchSize,
         });
         const status = await getDashboardStatus();
-        const tempStatus = await getTempDetectorStatus();
+        const readiness = await getUserSequenceReadiness({
+          minUsers: userMinUsers,
+          minSequences: userMinSequences,
+          minSequenceLen: userMinSeqLen,
+          maxSequenceLen: userMaxSeqLen,
+          outcomes,
+        });
         const clusterMap = await getUserClusterMap({
           minSequenceLen: userMinSeqLen,
           maxSequenceLen: userMaxSeqLen,
@@ -450,8 +463,9 @@ function TrainModels() {
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version,
-          users: tempStatus?.baselines?.users ?? 0,
-          sequences: tempStatus?.baselines?.total_samples ?? 0,
+          users: readiness?.n_users ?? response?.n_users ?? 0,
+          sequences: readiness?.n_sequences ?? response?.n_sequences ?? 0,
+          selectedBatches: readiness?.selected_batches ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setUserClusterMap(
@@ -468,7 +482,11 @@ function TrainModels() {
         setConsoleText(
           response?.status === "trained"
             ? `Training complete. Sequences: ${response?.n_sequences ?? 0}.`
-            : `Not enough sequences to train (${response?.n_sequences ?? 0}).`
+            : `Not enough data to train. Trainable users: ${
+                response?.n_users ?? 0
+              }/${userMinUsers}, trainable sequences: ${
+                response?.n_sequences ?? 0
+              }/${userMinSequences}.`
         );
       }
     } catch (error) {
@@ -507,10 +525,24 @@ function TrainModels() {
   const userStatusTone = useMemo(() => {
     if (userMetrics.status === "Training...") return "text-warning";
     if (userMetrics.status === "Trained") return "text-success";
+    if (userMetrics.status === "Ready" || userMetrics.status === "Ready to train")
+      return "text-success";
     if (userMetrics.status === "Failed") return "text-error";
     if (userMetrics.status === "Untrained") return "text-warning";
+    if (userMetrics.status === "Not enough data") return "text-warning";
     return "text-base-content/70";
   }, [userMetrics.status]);
+
+  const trainingReadinessText =
+    modelType === "user"
+      ? userMetrics.status === "Ready" ||
+        userMetrics.status === "Ready to train" ||
+        userMetrics.status === "Trained"
+        ? "Sequence data ready"
+        : `Need ${userMinUsers} users and ${userMinSequences} sequences`
+      : canTrain
+      ? "Ready for training"
+      : "Training not available";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1014,10 +1046,15 @@ function TrainModels() {
 
                     <div className="flex items-center justify-between gap-3 mt-auto">
                       <div className="flex items-center gap-2 text-xs text-base-content/60">
-                        <span className="w-2 h-2 rounded-full bg-success/70"></span>
-                        {canTrain
-                          ? "Ready for training"
-                          : "Training not available"}
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            modelType === "user" &&
+                            userMetrics.status === "Not enough data"
+                              ? "bg-warning/70"
+                              : "bg-success/70"
+                          }`}
+                        ></span>
+                        {trainingReadinessText}
                       </div>
                       <div className="flex items-center gap-2">
                         {modelType === "category" ? (
@@ -1126,17 +1163,23 @@ function TrainModels() {
                         Last run: {userMetrics.lastRun}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Users</div>
+                        <div className="text-base-content/60">Trainable Users</div>
                         <div className="text-sm font-semibold">
                           {userMetrics.users}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Sequences</div>
+                        <div className="text-base-content/60">Trainable Sequences</div>
                         <div className="text-sm font-semibold">
                           {userMetrics.sequences}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Selected Batches</div>
+                        <div className="text-sm font-semibold">
+                          {userMetrics.selectedBatches}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
