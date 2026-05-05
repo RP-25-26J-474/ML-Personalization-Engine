@@ -126,12 +126,17 @@ export function getTempDetectorStatus() {
   return getJson("/temp-detector/status");
 }
 
-export function getTempDetectorForest(maxTrees = 12) {
-  return getJson(`/temp-detector/forest?max_trees=${maxTrees}`);
+export function getTempDetectorForest(maxTrees = null) {
+  const query = maxTrees == null ? "" : `?max_trees=${maxTrees}`;
+  return getJson(`/temp-detector/forest${query}`);
 }
 
 export function trainTempDetectorSynth(payload) {
   return postJson("/temp-detector/train-synth", payload);
+}
+
+export function trainTempDetectorFromBatches(payload) {
+  return postJson("/temp-detector/train-from-batches", payload);
 }
 
 export function getTempTemplate(userId) {

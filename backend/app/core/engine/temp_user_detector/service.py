@@ -48,9 +48,10 @@ class TempUserDetectorService:
         self.quarantine_threshold = 0.55  # demo threshold (tune later)
         self.reject_threshold = 0.75  # hard reject for high anomaly
         self.feature_order = list(FEATURE_ORDER)
+        self._load_thresholds()
 
-    def train_global(self, feature_matrix: np.ndarray) -> None:
-        self.model = new_iforest()
+    def train_global(self, feature_matrix: np.ndarray, contamination: float = 0.10) -> None:
+        self.model = new_iforest(contamination=contamination)
         self.model.fit(feature_matrix)
         self._save_best()
 
@@ -59,6 +60,54 @@ class TempUserDetectorService:
         X = np.array([[row[k] for k in self.feature_order] for row in rows], dtype=float)
         self.train_global(X)
         return int(X.shape[0])
+
+    def train_from_feature_rows(
+        self,
+        feature_rows: list[list[float]],
+        *,
+        contamination: float = 0.10,
+        quarantine_percentile: float = 95.0,
+        reject_percentile: float = 99.0,
+    ) -> dict[str, Any]:
+        X = np.array(feature_rows, dtype=float)
+        if X.ndim != 2 or X.shape[1] != len(self.feature_order):
+            raise ValueError(
+                f"feature rows must have shape (n, {len(self.feature_order)})"
+            )
+
+        self.train_global(X, contamination=contamination)
+        scores = np.array([score_anomaly(self.model, row) for row in X], dtype=float)
+
+        p50 = float(np.percentile(scores, 50))
+        p90 = float(np.percentile(scores, 90))
+        p95 = float(np.percentile(scores, 95))
+        p99 = float(np.percentile(scores, 99))
+        quarantine = float(np.percentile(scores, quarantine_percentile))
+        reject = float(np.percentile(scores, reject_percentile))
+
+        quarantine = max(0.30, min(0.90, quarantine))
+        reject = max(quarantine + 0.05, min(0.98, reject))
+
+        self.quarantine_threshold = quarantine
+        self.reject_threshold = reject
+        self._save_thresholds()
+
+        return {
+            "n_samples": int(X.shape[0]),
+            "contamination": float(contamination),
+            "quarantine_threshold": quarantine,
+            "reject_threshold": reject,
+            "score_percentiles": {
+                "p50": p50,
+                "p90": p90,
+                "p95": p95,
+                "p99": p99,
+            },
+            "calibration": {
+                "quarantine_percentile": float(quarantine_percentile),
+                "reject_percentile": float(reject_percentile),
+            },
+        }
 
     def score_batch(self, batch: InteractionBatch) -> TempFilterResult:
         return self._score_batch_internal(batch)
@@ -172,6 +221,29 @@ class TempUserDetectorService:
     def _save_best(self) -> None:
         if self.model is not None:
             self.artifact_store.save("temp_detector/iforest_best", self.model)
+
+    def _load_thresholds(self) -> None:
+        thresholds = self.artifact_store.load("temp_detector/thresholds_best")
+        if not isinstance(thresholds, dict):
+            return
+        try:
+            quarantine = float(thresholds["quarantine_threshold"])
+            reject = float(thresholds["reject_threshold"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if 0.0 <= quarantine <= 1.0 and 0.0 <= reject <= 1.0 and quarantine < reject:
+            self.quarantine_threshold = quarantine
+            self.reject_threshold = reject
+
+    def _save_thresholds(self) -> None:
+        self.artifact_store.save(
+            "temp_detector/thresholds_best",
+            {
+                "quarantine_threshold": self.quarantine_threshold,
+                "reject_threshold": self.reject_threshold,
+                "feature_order": self.feature_order,
+            },
+        )
 
     def _heuristic_components(self, batch: InteractionBatch) -> dict[str, float]:
         def norm(value: float, low: float, high: float) -> float:

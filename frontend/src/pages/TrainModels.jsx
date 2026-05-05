@@ -9,6 +9,7 @@ import {
   getUserClusterMap,
   trainCategoryWithCsv,
   trainCategoryWithSynth,
+  trainTempDetectorFromBatches,
   trainTempDetectorSynth,
   trainUserSeqModel,
 } from "../services/api-services";
@@ -25,8 +26,15 @@ function TrainModels() {
   const [categoryAugmentCopies, setCategoryAugmentCopies] = useState(3);
   const [categoryAugmentNoise, setCategoryAugmentNoise] = useState(0.03);
   const [categoryAugmentSeed, setCategoryAugmentSeed] = useState(42);
+  const [tempTrainMode, setTempTrainMode] = useState("synth");
   const [tempSynthSamples, setTempSynthSamples] = useState(400);
   const [tempSynthSeed, setTempSynthSeed] = useState(42);
+  const [tempBatchOutcomes, setTempBatchOutcomes] = useState("keep");
+  const [tempBatchUserId, setTempBatchUserId] = useState("");
+  const [tempBatchMinSamples, setTempBatchMinSamples] = useState(50);
+  const [tempContamination, setTempContamination] = useState(0.1);
+  const [tempQuarantinePercentile, setTempQuarantinePercentile] = useState(95);
+  const [tempRejectPercentile, setTempRejectPercentile] = useState(99);
   const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
   const [userOutcomes, setUserOutcomes] = useState("keep");
   const [userMinUsers, setUserMinUsers] = useState(5);
@@ -54,6 +62,7 @@ function TrainModels() {
     quarantined: 0,
     rejected: 0,
     baselines: 0,
+    trees: 0,
     lastRun: "--",
   });
   const [userMetrics, setUserMetrics] = useState({
@@ -112,6 +121,13 @@ function TrainModels() {
   const userOutcomesToList = (value) =>
     value === "all"
       ? []
+      : value === "keep_quarantine"
+      ? ["keep", "quarantine"]
+      : ["keep"];
+
+  const tempOutcomesToList = (value) =>
+    value === "all"
+      ? ["keep", "quarantine", "reject"]
       : value === "keep_quarantine"
       ? ["keep", "quarantine"]
       : ["keep"];
@@ -177,10 +193,11 @@ function TrainModels() {
           status: status?.model_trained ? "Ready" : "Untrained",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setConsoleText("Temporary detector status loaded.");
@@ -279,7 +296,7 @@ function TrainModels() {
 
     const loadForest = async () => {
       try {
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         if (cancelled) return;
         setTempForest(forest || { status: "idle", trees: [] });
       } catch (error) {
@@ -312,7 +329,11 @@ function TrainModels() {
       setConsoleText("Training User Engine (sequence autoencoder)...");
       setUserMetrics((prev) => ({ ...prev, status: "Training..." }));
     } else {
-      setConsoleText("Training Temporary User Detector from synthetic data...");
+      setConsoleText(
+        tempTrainMode === "stored"
+          ? "Training Temporary User Detector from stored batches..."
+          : "Training Temporary User Detector from synthetic data..."
+      );
       setTempMetrics((prev) => ({ ...prev, status: "Training..." }));
     }
 
@@ -353,27 +374,55 @@ function TrainModels() {
           `Training complete. ${sampleSummary}`
         );
       } else if (modelType === "temp-detector") {
-        const response = await trainTempDetectorSynth({
-          n_samples: tempSynthSamples,
-          seed: tempSynthSeed,
-        });
+        const response =
+          tempTrainMode === "stored"
+            ? await trainTempDetectorFromBatches({
+                user_id: tempBatchUserId.trim() || null,
+                outcomes: tempOutcomesToList(tempBatchOutcomes),
+                min_samples: tempBatchMinSamples,
+                contamination: tempContamination,
+                quarantine_percentile: tempQuarantinePercentile,
+                reject_percentile: tempRejectPercentile,
+              })
+            : await trainTempDetectorSynth({
+                n_samples: tempSynthSamples,
+                seed: tempSynthSeed,
+              });
         const status = await getTempDetectorStatus();
-        const forest = await getTempDetectorForest(12);
+        const forest = await getTempDetectorForest();
         setTempMetrics({
           status:
             response?.status === "trained" ? "Trained" : "Not enough data",
           version: status?.model_version || "--",
           total: status?.baselines?.total_samples ?? 0,
-          kept: 0,
-          quarantined: 0,
-          rejected: 0,
+          kept: status?.history?.kept ?? 0,
+          quarantined: status?.history?.quarantined ?? 0,
+          rejected: status?.history?.rejected ?? 0,
           baselines: status?.baselines?.users ?? 0,
+          trees: status?.n_estimators ?? 0,
           lastRun: new Date().toLocaleTimeString(),
         });
         setTempForest(forest || { status: "idle", trees: [] });
+        const calibrationText =
+          response?.source === "stored_batches" ||
+          response?.source === "baseline_templates"
+            ? ` Thresholds: quarantine ${Number(
+                response?.quarantine_threshold ?? 0
+              ).toFixed(3)}, reject ${Number(
+                response?.reject_threshold ?? 0
+              ).toFixed(3)}.`
+            : "";
+        const sourceText =
+          response?.source === "baseline_templates"
+            ? " Source: baseline templates."
+            : response?.source === "stored_batches"
+            ? " Source: stored batches."
+            : "";
         setConsoleText(
           response?.status === "trained"
-            ? `Training complete. Samples: ${response?.n_samples ?? 0}.`
+            ? `Training complete. Samples: ${
+                response?.n_samples ?? 0
+              }.${sourceText}${calibrationText}`
             : `Not enough samples to train (${response?.n_samples ?? 0}).`
         );
       } else if (modelType === "user") {
@@ -639,40 +688,170 @@ function TrainModels() {
                       {modelType === "temp-detector" ? (
                         <div className="rounded-lg border border-primary/30 bg-base-300/60 p-3 flex flex-col gap-3">
                           <div className="text-xs text-base-content/60">
-                            Template-only mode: training uses synthetic samples.
+                            Training Source
                           </div>
-                          <div>
-                            <div className="text-xs text-base-content/60">
-                              Synthetic Samples
-                            </div>
-                            <input
-                              type="number"
-                              min={50}
-                              max={2000}
-                              step={50}
-                              value={tempSynthSamples}
-                              onChange={(event) =>
-                                setTempSynthSamples(Number(event.target.value))
-                              }
-                              className="input input-bordered w-full mt-2"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-xs text-base-content/60">
-                              Seed
-                            </div>
-                            <input
-                              type="number"
-                              min={0}
-                              max={9999}
-                              step={1}
-                              value={tempSynthSeed}
-                              onChange={(event) =>
-                                setTempSynthSeed(Number(event.target.value))
-                              }
-                              className="input input-bordered w-full mt-2"
-                            />
-                          </div>
+                          <select
+                            className="select select-bordered w-full"
+                            value={tempTrainMode}
+                            onChange={(event) =>
+                              setTempTrainMode(event.target.value)
+                            }
+                          >
+                            <option value="synth">Synthetic bootstrap data</option>
+                            <option value="stored">Stored real batches</option>
+                          </select>
+                          {tempTrainMode === "synth" ? (
+                            <>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Synthetic Samples
+                                </div>
+                                <input
+                                  type="number"
+                                  min={50}
+                                  max={2000}
+                                  step={50}
+                                  value={tempSynthSamples}
+                                  onChange={(event) =>
+                                    setTempSynthSamples(
+                                      Number(event.target.value)
+                                    )
+                                  }
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Seed
+                                </div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={9999}
+                                  step={1}
+                                  value={tempSynthSeed}
+                                  onChange={(event) =>
+                                    setTempSynthSeed(Number(event.target.value))
+                                  }
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Outcomes
+                                </div>
+                                <select
+                                  className="select select-bordered w-full mt-2"
+                                  value={tempBatchOutcomes}
+                                  onChange={(event) =>
+                                    setTempBatchOutcomes(event.target.value)
+                                  }
+                                >
+                                  <option value="keep">Kept batches</option>
+                                  <option value="keep_quarantine">
+                                    Keep + Quarantine
+                                  </option>
+                                  <option value="all">All outcomes</option>
+                                </select>
+                              </div>
+                              <div>
+                                <div className="text-xs text-base-content/60">
+                                  Optional User ID
+                                </div>
+                                <input
+                                  type="text"
+                                  value={tempBatchUserId}
+                                  onChange={(event) =>
+                                    setTempBatchUserId(event.target.value)
+                                  }
+                                  placeholder="Leave empty for all users"
+                                  className="input input-bordered w-full mt-2"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Min Samples
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={10000}
+                                    step={1}
+                                    value={tempBatchMinSamples}
+                                    onChange={(event) =>
+                                      setTempBatchMinSamples(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Contamination
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={0.001}
+                                    max={0.5}
+                                    step={0.01}
+                                    value={tempContamination}
+                                    onChange={(event) =>
+                                      setTempContamination(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Quarantine Pctl
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={50}
+                                    max={99.9}
+                                    step={0.5}
+                                    value={tempQuarantinePercentile}
+                                    onChange={(event) =>
+                                      setTempQuarantinePercentile(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="text-xs text-base-content/60">
+                                    Reject Pctl
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min={50}
+                                    max={99.99}
+                                    step={0.5}
+                                    value={tempRejectPercentile}
+                                    onChange={(event) =>
+                                      setTempRejectPercentile(
+                                        Number(event.target.value)
+                                      )
+                                    }
+                                    className="input input-bordered w-full mt-2"
+                                  />
+                                </div>
+                              </div>
+                              <div className="text-[11px] text-base-content/50">
+                                Recommended: train from kept batches first.
+                                Thresholds are calibrated from the selected
+                                stored-batch score distribution.
+                              </div>
+                            </>
+                          )}
                         </div>
                       ) : null}
                       {modelType === "user" ? (
@@ -894,7 +1073,7 @@ function TrainModels() {
                         Last run: {tempMetrics.lastRun}
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-5 gap-2 text-xs">
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
                         <div className="text-base-content/60">Template Samples</div>
                         <div className="text-sm font-semibold">
@@ -905,6 +1084,18 @@ function TrainModels() {
                         <div className="text-base-content/60">Template Users</div>
                         <div className="text-sm font-semibold">
                           {tempMetrics.baselines}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Stored Kept</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.kept}
+                        </div>
+                      </div>
+                      <div className="rounded-md bg-base-200 p-2 border border-primary/10">
+                        <div className="text-base-content/60">Trees</div>
+                        <div className="text-sm font-semibold">
+                          {tempMetrics.trees}
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
