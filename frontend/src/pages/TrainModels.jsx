@@ -38,7 +38,7 @@ function TrainModels() {
   const [tempRejectPercentile, setTempRejectPercentile] = useState(99);
   const [tempForest, setTempForest] = useState({ status: "idle", trees: [] });
   const [userOutcomes, setUserOutcomes] = useState("keep");
-  const [userMinUsers, setUserMinUsers] = useState(5);
+  const [userMinUsers, setUserMinUsers] = useState(20);
   const [userMinSequences, setUserMinSequences] = useState(20);
   const [userMinSeqLen, setUserMinSeqLen] = useState(2);
   const [userMaxSeqLen, setUserMaxSeqLen] = useState(20);
@@ -539,7 +539,7 @@ function TrainModels() {
         userMetrics.status === "Ready to train" ||
         userMetrics.status === "Trained"
         ? "Sequence data ready"
-        : `Need ${userMinUsers} users and ${userMinSequences} sequences`
+        : `Need ${Math.max(userMinUsers, userMinSequences)} trainable users`
       : canTrain
       ? "Ready for training"
       : "Training not available";
@@ -1171,7 +1171,7 @@ function TrainModels() {
                         </div>
                       </div>
                       <div className="rounded-md bg-base-200 p-2 border border-primary/10">
-                        <div className="text-base-content/60">Trainable Sequences</div>
+                        <div className="text-base-content/60">Trainable Seq</div>
                         <div className="text-sm font-semibold">
                           {userMetrics.sequences}
                         </div>

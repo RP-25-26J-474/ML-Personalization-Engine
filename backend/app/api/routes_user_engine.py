@@ -63,7 +63,7 @@ class TrainSeqModelRequest(BaseModel):
         default_factory=lambda: ["keep"],
         description="Outcome labels included when building training sequences.",
     )
-    min_users: int = Field(default=5, description="Minimum users required to start sequence training.")
+    min_users: int = Field(default=20, description="Minimum users required to start sequence training.")
     min_sequences: int = Field(default=20, description="Minimum sequence count required to train.")
     min_sequence_len: int = Field(default=2, description="Minimum batches per user sequence.")
     max_sequence_len: int = Field(default=20, description="Maximum batches retained per user sequence.")
@@ -482,7 +482,7 @@ def train_seq_model(req: TrainSeqModelRequest):
 )
 def sequence_readiness(
     outcomes: list[str] = Query(default=[]),
-    min_users: int = 5,
+    min_users: int = 20,
     min_sequences: int = 20,
     min_sequence_len: int = 2,
     max_sequence_len: int = 20,
