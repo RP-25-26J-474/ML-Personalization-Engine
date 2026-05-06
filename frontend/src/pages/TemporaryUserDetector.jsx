@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Modal from "../components/modals/Modal";
 import InputSection from "../components/sections/InputSection";
 import ConsoleSection from "../components/sections/ConsoleSection";
 import ChartSection from "../components/sections/ChartSection";
@@ -109,6 +110,11 @@ function TemporaryUserDetector() {
           ? `Template found for ${userId} (count=${response.count}).`
           : `No template found for ${userId}.`
       );
+      if (response) {
+        setTimeout(() => {
+          document.getElementById("user-template-modal")?.showModal();
+        }, 50);
+      }
     } catch (error) {
       setTemplateResult(null);
       appendConsole(
@@ -240,51 +246,66 @@ function TemporaryUserDetector() {
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full max-w-8xl mx-auto">
           <div className="grid h-full min-h-0 grid-cols-12 gap-3">
-            <div className="col-span-12 xl:col-span-4 flex min-h-0 flex-col gap-3">
-              <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-                <div className="col-span-12 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
-                  <InputSection
-                    title="Interaction Batches"
-                    value={inputText}
-                    onChange={setInputText}
-                    onSubmit={handleSubmit}
-                    isLoading={isLoading}
+            {/* Left Column: Actions & Sandboxes (2 cards now!) */}
+            <div className="col-span-12 xl:col-span-4 flex xl:h-full flex-col gap-3 min-w-0">
+              <div className="flex-1 bg-base-200/50 rounded-lg shadow border border-primary flex flex-col transition-all duration-300 min-w-0 overflow-hidden">
+                <InputSection
+                  title="Interaction Batches"
+                  value={inputText}
+                  onChange={setInputText}
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                />
+              </div>
+              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 p-4 flex-none">
+                <h3 className="font-semibold text-sm mb-3">Live User Template</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3.5 items-center justify-center">
+                  <input
+                    className="input input-bordered w-full"
+                    placeholder="user_id"
+                    value={templateUserId}
+                    onChange={(event) => setTemplateUserId(event.target.value)}
                   />
-                </div>
-                <div className="col-span-12 bg-base-200 rounded-lg shadow border-2 border-primary/70 p-4">
-                  <h3 className="font-semibold text-sm mb-3">Live User Template</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                    <input
-                      className="input input-bordered w-full"
-                      placeholder="user_id"
-                      value={templateUserId}
-                      onChange={(event) => setTemplateUserId(event.target.value)}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm flex-1"
-                        disabled={isLoading}
-                        onClick={handleFetchTemplate}
-                      >
-                        Fetch
-                      </button>
-                    </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm flex-1"
+                      disabled={isLoading}
+                      onClick={handleFetchTemplate}
+                    >
+                      Fetch
+                    </button>
+                    <Modal
+                      id="user-template-modal"
+                      title={`Live User Template: ${templateUserId}`}
+                      triggerLabel="View"
+                      triggerClassName={
+                        templateResult
+                          ? "btn btn-outline btn-sm btn-primary px-3"
+                          : "hidden"
+                      }
+                      boxClassName="modal-box max-w-2xl bg-base-200 border border-primary rounded-xl p-5 shadow-2xl"
+                    >
+                      <pre className="block w-full max-w-full overflow-auto whitespace-pre text-xs font-mono bg-base-100 p-3 rounded-lg border border-base-content/30 max-h-[60vh] text-base-content/95 shadow-inner mt-2">
+                        {templateResult ? formatJson(templateResult) : "No template fetched."}
+                      </pre>
+                    </Modal>
                   </div>
-                  <pre className="whitespace-pre-wrap text-xs font-mono bg-base-100 rounded p-2 max-h-28 overflow-auto">
-                    {templateResult
-                      ? formatJson(templateResult)
-                      : "Template updates automatically after kept batches. Fetch to view."}
-                  </pre>
                 </div>
-                <div className="col-span-12 bg-base-200 rounded-lg shadow border-2 border-primary/70 min-h-40 flex flex-col">
-                  <ConsoleSection value={consoleText} />
+                  <div className="text-xs text-base-content/60 leading-relaxed text-center italic">
+                    Template updates automatically after kept batches. Fetch to view.
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="col-span-12 xl:col-span-8 max-h-[90vh] overflow-auto bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0">
-              <NormalTabs tabs={normalTabsContent} className="h-full" contentClassName="max-h-[60vh] overflow-auto" />
+            {/* Right Column: Visual Outputs, Lists & Console logs (Tab + Console!) */}
+            <div className="col-span-12 xl:col-span-8 max-h-[90vh] overflow-auto bg-base-200/50 p-4 rounded-lg shadow border border-primary flex flex-col min-h-0 transition-all duration-300 min-w-0 overflow-hidden gap-3">
+              <div className="flex-1 flex flex-col min-h-0">
+                <NormalTabs tabs={normalTabsContent} className="h-full" contentClassName="max-h-[48vh] overflow-auto mt-2" />
+              </div>
+              <div className="bg-base-200/50 rounded-lg shadow border border-primary min-h-[160px] max-h-[220px] flex flex-col min-w-0 overflow-hidden">
+                <ConsoleSection value={consoleText} />
+              </div>
             </div>
           </div>
         </div>

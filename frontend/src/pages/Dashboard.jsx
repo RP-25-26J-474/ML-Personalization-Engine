@@ -102,7 +102,7 @@ function Dashboard() {
 
       return (
         <div className="mt-3 flex items-center min-h-[44px]" title={valStr}>
-          <div className="bg-base-300/60 px-3 py-2 rounded-lg border border-base-content/5 inline-block w-fit">
+          <div className="bg-base-300/60 px-3 py-2 rounded-lg border border-base-content/30 inline-block w-fit">
             <span className="flex items-center gap-2">
               <span className="text-primary font-black uppercase tracking-widest text-[11px] md:text-[12px]">
                 {prefix}
@@ -143,7 +143,7 @@ function Dashboard() {
     <div className="space-y-6">
       {/* Row 1: System-wide User Profile Metrics (2-column layout) */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
           <div className="text-xs uppercase tracking-wider font-semibold">
             Users With Profiles
           </div>
@@ -152,7 +152,7 @@ function Dashboard() {
             {error ? `Error: ${error}` : "Profiles stored in memory"}
           </div>
         </div>
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
           <div className="text-xs uppercase tracking-wider font-semibold">
             Profile Versions
           </div>
@@ -165,7 +165,7 @@ function Dashboard() {
 
       {/* Row 2: Machine Learning Model Snapshot Versions (3-column layout) */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
           <div className="text-xs uppercase tracking-wider font-semibold">
             Category Model Version
           </div>
@@ -174,7 +174,7 @@ function Dashboard() {
             Latest classification snapshot
           </div>
         </div>
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
           <div className="text-xs uppercase tracking-wider font-semibold">
             Global IForest Version
           </div>
@@ -183,7 +183,7 @@ function Dashboard() {
             Latest global model snapshot
           </div>
         </div>
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md hover:border-primary/20">
           <div className="text-xs uppercase tracking-wider font-semibold">
             User Seq Model Version
           </div>
@@ -195,7 +195,7 @@ function Dashboard() {
       </div>
 
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
           <div className="flex items-center justify-between border-b border-primary/5 pb-2.5 mb-4">
             <div className="text-sm font-bold text-base-content">Category Engine</div>
             <HealthChip active={Boolean(categoryHealth.available)} />
@@ -222,7 +222,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
           <div className="flex items-center justify-between border-b border-primary/5 pb-2.5 mb-4">
             <div className="text-sm font-bold text-base-content">Temporary User Detector</div>
             <HealthChip active={Boolean(tempHealth.available)} />
@@ -261,7 +261,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-primary/50 bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
+        <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300 hover:scale-[1.01] hover:border-primary/20">
           <div className="flex items-center justify-between border-b border-primary/5 pb-2.5 mb-4">
             <div className="text-sm font-bold text-base-content">User Engine</div>
             <HealthChip active={Boolean(userHealth.available)} />
