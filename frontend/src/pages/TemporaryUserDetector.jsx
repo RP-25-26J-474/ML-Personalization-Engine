@@ -150,14 +150,14 @@ function TemporaryUserDetector() {
   const tabs = [
     {
       key: "legit",
-      label: "Legit Batches (Primary User)",
+      label: "Legit (Primary User)",
       content: (
         <Accordian name="legit-batches" items={toAccordianItems(keptItems)} />
       ),
     },
     {
       key: "quarantined",
-      label: "Quarantined Batches (Ambiguous)",
+      label: "Quarantined (Ambiguous)",
       content: (
         <Accordian
           name="quarantined-batches"
@@ -167,7 +167,7 @@ function TemporaryUserDetector() {
     },
     {
       key: "rejected",
-      label: "Rejected Batches (Temporary User)",
+      label: "Rejected (Temporary User)",
       content: (
         <Accordian
           name="rejected-batches"
@@ -242,13 +242,13 @@ function TemporaryUserDetector() {
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full max-w-8xl mx-auto">
-          <div className="grid h-full min-h-0 grid-cols-12 gap-3">
-            {/* Left Column: Actions & Sandboxes (2 cards now!) */}
-            <div className="col-span-12 xl:col-span-4 flex xl:h-full flex-col gap-3 min-w-0">
-              <div className="flex-1 bg-base-200/50 rounded-lg shadow border border-primary flex flex-col transition-all duration-300 min-w-0 overflow-hidden">
+    <div className="flex flex-col min-h-full">
+      <div className="flex-1">
+        <div className="max-w-8xl mx-auto">
+          <div className="grid h-[calc(100vh-13rem)] grid-cols-12 gap-3">
+            {/* Left Column: Actions & Sandboxes */}
+            <div className="col-span-12 xl:col-span-4 flex flex-col gap-3 min-w-0">
+              <div className="flex-1 bg-base-200/50 rounded-lg shadow border border-primary flex flex-col transition-all duration-300 min-w-0 overflow-hidden min-h-60">
                 <InputSection
                   title="Interaction Batches"
                   value={inputText}
@@ -257,7 +257,7 @@ function TemporaryUserDetector() {
                   isLoading={isLoading}
                 />
               </div>
-              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 p-4 flex-none">
+              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 p-4 shrink-0">
                 <h3 className="font-semibold text-sm mb-3">Live User Template</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3.5 items-center justify-center">
                   <input
@@ -298,12 +298,12 @@ function TemporaryUserDetector() {
                 </div>
               </div>
 
-            {/* Right Column: Visual Outputs, Lists & Console logs (Tab + Console!) */}
-            <div className="col-span-12 xl:col-span-8 max-h-[90vh] overflow-auto bg-base-200/50 p-4 rounded-lg shadow border border-primary flex flex-col min-h-0 transition-all duration-300 min-w-0 overflow-hidden gap-3">
-              <div className="flex-1 flex flex-col min-h-0">
-                <NormalTabs tabs={normalTabsContent} className="h-full" contentClassName="max-h-[48vh] overflow-auto mt-2" />
+            {/* Right Column: Visual Outputs, Lists & Console logs */}
+            <div className="col-span-12 xl:col-span-8 bg-base-200/50 p-4 rounded-lg shadow border border-primary flex flex-col min-w-0 min-h-0 transition-all duration-300 gap-3 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <NormalTabs tabs={normalTabsContent} className="h-full flex flex-col min-h-0" contentClassName="flex-1 overflow-auto mt-2" />
               </div>
-              <div className="bg-base-200/50 rounded-lg shadow border border-primary min-h-[160px] max-h-[220px] flex flex-col min-w-0 overflow-hidden">
+              <div className="bg-base-200/50 rounded-lg shadow border border-primary min-h-[140px] max-h-[200px] flex flex-col min-w-0 overflow-hidden shrink-0">
                 <ConsoleSection value={consoleText} />
               </div>
             </div>

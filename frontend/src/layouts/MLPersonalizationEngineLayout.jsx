@@ -89,7 +89,7 @@ function MLPersonalizationEngineLayout() {
   })();
 
   return (
-    <div className="min-h-screen bg-base-300 text-base-content flex">
+    <div className="h-screen bg-base-300 text-base-content flex overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-primary/20 bg-base-300">
         <div className="px-4 py-4 border-b border-primary/20 flex items-center justify-between">
@@ -124,7 +124,7 @@ function MLPersonalizationEngineLayout() {
               </div>
             </div>
             <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs border border-cyan-500/30">
-              v 0.0.1
+              v 1.1.0
             </span>
           </div>
         </div>
@@ -192,7 +192,7 @@ function MLPersonalizationEngineLayout() {
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-auto">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
         <header className="sticky top-0 z-30 border-b border-primary/15 flex items-center justify-between px-4 py-3 bg-base-300/80 backdrop-blur-md">
           <div className="flex items-center gap-3">
             {/* Hamburger Button */}
@@ -216,9 +216,9 @@ function MLPersonalizationEngineLayout() {
           <ThemeButton />
         </header>
 
-         <main className="flex-1 overflow-y-auto min-h-0 bg-gradient-to-b from-base-300 via-base-100 to-base-200">
-          <div className="max-w-9xl px-4 md:px-10 py-6 md:py-8 min-h-0 flex-1 flex flex-col">
-            <div className="flex flex-col sm:flex-row sm:items-center mb-6 justify-between gap-2">
+         <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gradient-to-b from-base-300 via-base-100 to-base-200">
+          <div className="max-w-9xl px-4 md:px-10 py-6 md:py-8 flex-1 flex flex-col min-h-0">
+            <div className="flex flex-col sm:flex-row sm:items-center mb-6 justify-between gap-2 shrink-0">
               <div className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-base-content via-base-content/90 to-base-content/70 bg-clip-text text-transparent">
                 {pageName}
               </div>

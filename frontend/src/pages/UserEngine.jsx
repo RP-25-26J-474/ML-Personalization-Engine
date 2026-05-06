@@ -193,11 +193,11 @@ export default function UserEngine() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full max-w-8xl mx-auto">
-          <div className="grid h-full min-h-0 grid-cols-12 gap-3">
-            <div className="col-span-12 xl:col-span-8 max-h-[calc(100vh-12rem)] flex min-h-0 flex-col gap-3">
+    <div className="flex flex-col min-h-full">
+      <div className="flex-1">
+        <div className="max-w-8xl mx-auto">
+          <div className="grid h-[calc(100vh-13rem)] grid-cols-12 gap-3">
+            <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
                 <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
                   <div className="flex items-center justify-between px-4 pt-4">
@@ -270,12 +270,12 @@ export default function UserEngine() {
                 </div>
               </div>
 
-              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 min-h-40 flex flex-col">
+              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 min-h-40 flex flex-col shrink-0">
                 <ConsoleSection value={consoleText} />
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-4 max-h-[calc(100vh-12rem)] bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
+            <div className="col-span-12 xl:col-span-4 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
               <ChartSection
                 title="Profile Diff History"
                 subtitle={
@@ -289,7 +289,7 @@ export default function UserEngine() {
                   userId={historyUserId}
                 />
               </ChartSection>
-              <div className="mt-3">
+              <div className="mt-3 shrink-0">
                 <button
                   className="btn btn-xs btn-outline"
                   disabled={isHistoryLoading || !historyUserId}

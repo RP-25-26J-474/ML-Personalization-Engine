@@ -5,6 +5,12 @@
   --font-sans: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
 }
 
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 @plugin "daisyui"{
   themes: light --default, dark --default;
 }
