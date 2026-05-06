@@ -216,7 +216,7 @@ function MLPersonalizationEngineLayout() {
           <ThemeButton />
         </header>
 
-         <main className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gradient-to-b from-base-300 via-base-100 to-base-200">
+         <main className="flex-1 flex flex-col min-h-0 overflow-y-auto bg-gradient-to-b from-base-300 via-base-100 to-base-200">
           <div className="max-w-9xl px-4 md:px-10 py-6 md:py-8 flex-1 flex flex-col min-h-0">
             <div className="flex flex-col sm:flex-row sm:items-center mb-6 justify-between gap-2 shrink-0">
               <div className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-base-content via-base-content/90 to-base-content/70 bg-clip-text text-transparent">

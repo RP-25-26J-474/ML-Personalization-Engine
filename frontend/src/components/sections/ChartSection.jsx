@@ -20,7 +20,7 @@ export default function ChartSection({
 
       {children ? (
         <div
-          className={`flex-1 min-h-0 rounded-lg border border-primary/20 bg-base-300/40 overflow-hidden ${contentClassName}`.trim()}
+          className={`flex-1 min-h-0 rounded-lg border border-primary/20 bg-base-300/40 overflow-auto ${contentClassName}`.trim()}
         >
           {children}
         </div>

@@ -199,7 +199,7 @@ export default function UserEngine() {
           <div className="grid h-[calc(100vh-13rem)] grid-cols-12 gap-3">
             <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col overflow-hidden">
                   <div className="flex items-center justify-between px-4 pt-4">
                     <div className="text-sm font-semibold">Mode</div>
                     <div className="join">
@@ -265,7 +265,7 @@ export default function UserEngine() {
                   />
                 </div>
 
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col overflow-hidden">
                   <OutputSection value={outputText} onCopy={handleCopy} />
                 </div>
               </div>
@@ -275,7 +275,7 @@ export default function UserEngine() {
               </div>
             </div>
 
-            <div className="col-span-12 xl:col-span-4 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col">
+            <div className="col-span-12 xl:col-span-4 bg-base-200 p-4 rounded-lg shadow border-2 border-primary/70 flex flex-col min-h-0 overflow-hidden">
               <ChartSection
                 title="Profile Diff History"
                 subtitle={

@@ -139,6 +139,21 @@ function Dashboard() {
     );
   };
 
+  const userModelVersions = status?.models?.user_model_versions || {};
+  const userVersionEntries = Object.entries(userModelVersions)
+    .map(([userId, version]) => {
+      const num = parseInt(String(version).replace(/^v/, ""), 10);
+      return { userId, version: String(version), count: Number.isNaN(num) ? 0 : num };
+    })
+    .sort((a, b) => b.count - a.count);
+  const maxVersionCount = userVersionEntries.length > 0
+    ? Math.max(...userVersionEntries.map((entry) => entry.count), 1)
+    : 1;
+  const totalUpdates = userVersionEntries.reduce((sum, entry) => sum + entry.count, 0);
+  const avgUpdates = userVersionEntries.length > 0
+    ? (totalUpdates / userVersionEntries.length).toFixed(1)
+    : "0";
+
   return (
     <div className="space-y-6">
       {/* Row 1: System-wide User Profile Metrics (2-column layout) */}
@@ -293,6 +308,69 @@ function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Row 4: Profile Update Activity Leaderboard */}
+      <div className="rounded-2xl border border-primary bg-base-200/50 p-5 transition-all duration-300">
+        <div className="flex items-center justify-between border-b border-primary/5 pb-2.5 mb-4">
+          <div>
+            <div className="text-sm font-bold text-base-content">Profile Update Activity</div>
+            <div className="text-xs text-base-content/50 mt-0.5">
+              Users ranked by number of personalization profile updates
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-base-content/60">
+            <div className="text-right">
+              <div className="text-base-content/40 uppercase tracking-wider text-[10px]">Users</div>
+              <div className="font-bold text-base-content text-sm">{userVersionEntries.length}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-base-content/40 uppercase tracking-wider text-[10px]">Total Updates</div>
+              <div className="font-bold text-base-content text-sm">{totalUpdates}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-base-content/40 uppercase tracking-wider text-[10px]">Avg / User</div>
+              <div className="font-bold text-base-content text-sm">{avgUpdates}</div>
+            </div>
+          </div>
+        </div>
+
+        {userVersionEntries.length === 0 ? (
+          <div className="text-sm text-base-content/50 py-6 text-center">
+            No user profile updates recorded yet. Use the User Engine to update profiles.
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {userVersionEntries.map((entry, index) => {
+              const barWidth = Math.max(4, (entry.count / maxVersionCount) * 100);
+              return (
+                <div
+                  key={entry.userId}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className="w-5 text-[10px] font-bold text-base-content/30 text-right shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-[80px] max-w-[120px] truncate text-xs font-mono font-semibold text-base-content/80" title={entry.userId}>
+                    {entry.userId}
+                  </div>
+                  <div className="flex-1 h-6 bg-base-300/40 rounded-md overflow-hidden relative">
+                    <div
+                      className="h-full rounded-md transition-all duration-500 ease-out"
+                      style={{
+                        width: `${barWidth}%`,
+                        background: `linear-gradient(90deg, oklch(var(--p) / 0.6), oklch(var(--p) / 0.25))`,
+                      }}
+                    />
+                  </div>
+                  <div className="w-10 text-right text-xs font-bold text-primary shrink-0">
+                    v{entry.count}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
