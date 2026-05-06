@@ -18,6 +18,40 @@ import IsolationForestTrees from "../components/charts/temp-detector/IsolationFo
 import UserSequenceClusterMap from "../components/charts/user-engine/UserSequenceClusterMap";
 import Modal from "../components/modals/Modal";
 
+const formatVersionInline = (value, prefix = "") => {
+  if (!value || value === "--") return "--";
+  const valStr = String(value);
+  const cleanStr = valStr.startsWith("v") ? valStr.substring(1) : valStr;
+  const isIso = cleanStr.includes("T") && cleanStr.includes("-") && cleanStr.includes(":");
+
+  let formattedBuild = valStr;
+  if (isIso) {
+    const date = new Date(cleanStr);
+    if (!Number.isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      formattedBuild = `v${year}.${month}.${day}-b${hours}${minutes}`;
+    }
+  }
+
+  if (prefix && value !== "--") {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-primary font-black uppercase tracking-widest text-[10px] md:text-[11px]">
+          {prefix}
+        </span>
+        <span className="text-base-content/25 text-[11px] md:text-[12px] font-bold">·</span>
+        <span className="font-mono text-base-content/90 font-semibold text-[11px] md:text-[12px]">{formattedBuild}</span>
+      </span>
+    );
+  }
+  return formattedBuild;
+};
+
 function TrainModels() {
   const [modelType, setModelType] = useState("category");
   const [nSynth, setNSynth] = useState(400);
@@ -1145,7 +1179,7 @@ function TrainModels() {
                       </div>
                     </div>
                     <div className="mt-3 text-xs text-base-content/60">
-                      Model version: {tempMetrics.version}
+                      Model version: <span className="font-mono font-semibold bg-base-300/40 px-1.5 py-0.5 rounded border border-base-content/5 text-base-content text-[11px]">{formatVersionInline(tempMetrics.version, "iforest")}</span>
                     </div>
                   </div>
                 ) : modelType === "user" ? (
@@ -1192,7 +1226,7 @@ function TrainModels() {
                       </div>
                     </div>
                     <div className="mt-3 text-xs text-base-content/60">
-                      Model version: {userMetrics.version}
+                      Model version: <span className="font-mono font-semibold bg-base-300/40 px-1.5 py-0.5 rounded border border-base-content/5 text-base-content text-[11px]">{formatVersionInline(userMetrics.version, "gru-ae")}</span>
                     </div>
                     <div className="mt-1 text-xs text-base-content/60">
                       Visualization: {userClusterMap.n_points} sequences across{" "}
