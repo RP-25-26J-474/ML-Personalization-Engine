@@ -14,12 +14,12 @@ export const navSections = [
       },
       {
         to: "/category-engine",
-        label: "Category Personalization Engine",
+        label: "Category Engine",
         subtitle: "Configure category-based recommendations",
       },
       {
         to: "/user-engine",
-        label: "User Personalization Engine",
+        label: "User Engine",
         subtitle: "Manage user-based recommendations",
       },
     ],
