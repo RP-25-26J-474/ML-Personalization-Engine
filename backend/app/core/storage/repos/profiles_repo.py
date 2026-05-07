@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.schemas.profile import PersonalizationProfile
+from app.core.schemas.profile import PROFILE_PASSTHROUGH_FIELDS, PersonalizationProfile
 from app.core.storage.db import db
 
 
@@ -91,7 +91,7 @@ class ProfilesRepo:
 
         changed = [
             key for key, new_value in new_profile.items()
-            if prev_profile.get(key) != new_value
+            if key not in PROFILE_PASSTHROUGH_FIELDS and prev_profile.get(key) != new_value
         ]
         return {
             "changed": changed,
