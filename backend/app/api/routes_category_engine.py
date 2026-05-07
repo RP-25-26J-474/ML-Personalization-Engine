@@ -6,13 +6,16 @@ import numpy as np
 
 from app.api.wiring import container
 from app.core.schemas.onboarding import OnboardingResult
-from app.core.schemas.profile import ProfileKnobs
+from app.core.schemas.profile import PROFILE_PASSTHROUGH_FIELDS, ProfileKnobs
 from app.core.engine.category_engine.umap_projector import fit_umap_2d, fit_umap_3d
 from app.core.engine.category_engine.model_knn import FEATURE_ORDER
 from app.core.utils.time import now_iso
 
 router = APIRouter()
-PROFILE_FIELDS = list(ProfileKnobs.model_fields.keys())
+PROFILE_FIELDS = [
+    key for key in ProfileKnobs.model_fields.keys()
+    if key not in PROFILE_PASSTHROUGH_FIELDS
+]
 
 
 class CategoryResponse(BaseModel):
@@ -81,7 +84,7 @@ async def train_category_csv(
     file: UploadFile = File(
         ...,
         description=(
-            "UTF-8 CSV with required columns: onboarding features in FEATURE_ORDER and all ProfileKnobs fields."
+            "UTF-8 CSV with required columns: onboarding features in FEATURE_ORDER and generated profile knobs."
         ),
     ),
     augment: bool = Form(
@@ -168,7 +171,7 @@ async def train_category_csv(
             ) from exc
 
         Xdicts.append(features)
-        profiles.append(profile.model_dump())
+        profiles.append(profile.model_dump(exclude=PROFILE_PASSTHROUGH_FIELDS))
 
     if not Xdicts:
         raise HTTPException(status_code=400, detail="CSV has no data rows.")
