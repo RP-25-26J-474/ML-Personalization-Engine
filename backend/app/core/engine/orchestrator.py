@@ -308,6 +308,7 @@ class Orchestrator:
                 "target_size": 28,
                 "tooltip_assist": False,
                 "layout_simplification": False,
+                "color_blindness": 0.0,
             }
         else:
             category_base = prev.profile.model_dump()
@@ -479,6 +480,7 @@ class Orchestrator:
                 "target_size": 28,
                 "tooltip_assist": False,
                 "layout_simplification": False,
+                "color_blindness": 0.0,
             }
         else:
             category_base = prev.profile.model_dump()
