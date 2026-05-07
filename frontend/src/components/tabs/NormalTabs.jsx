@@ -1,4 +1,4 @@
-import { Fragment, useId, useState } from "react";
+import { useId, useState } from "react";
 
 export default function NormalTabs({
   tabs,
@@ -15,25 +15,28 @@ export default function NormalTabs({
     return null;
   }
 
+  const activeTab = tabs[activeIndex] || tabs[0];
+
   return (
-    <div className={`tabs tabs-border ${className}`.trim()}>
-      {tabs.map((tab, index) => (
-        <Fragment key={tab.key || tab.label || index}>
-          <input
-            type="radio"
+    <div className={`flex flex-col ${className}`.trim()}>
+      <div className="flex border-b border-base-300 shrink-0" role="tablist">
+        {tabs.map((tab, index) => (
+          <button
+            key={tab.key || tab.label || index}
+            type="button"
+            role="tab"
             name={groupName}
-            className="tab"
+            className={`tab tab-border ${activeIndex === index ? "tab-active" : ""}`}
             aria-label={tab.label}
-            checked={activeIndex === index}
-            onChange={() => setActiveIndex(index)}
-          />
-          <div
-            className={`tab-content bg-base-100 border-base-300 p-4 ${contentClassName}`.trim()}
+            onClick={() => setActiveIndex(index)}
           >
-            {activeIndex === index ? tab.content : null}
-          </div>
-        </Fragment>
-      ))}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className={`flex-1 min-h-0 overflow-auto bg-base-100 p-4 ${contentClassName}`.trim()}>
+        {activeTab.content}
+      </div>
     </div>
   );
 }

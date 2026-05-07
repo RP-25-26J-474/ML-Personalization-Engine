@@ -7,12 +7,12 @@ export default function OutputSection({
   placeholder = "Output will be displayed here...",
 }) {
   return (
-    <div className="flex flex-col h-full p-2 gap-2 w-full">
-      <h2 className="text-md font-semibold text-center">{title}</h2>
+    <div className="flex flex-col h-full min-h-0 p-2 gap-2 w-full overflow-hidden">
+      <h2 className="text-md font-semibold text-center shrink-0">{title}</h2>
 
-      <div className="relative h-full w-full">
+      <div className="relative flex-1 min-h-0 w-full">
         <textarea
-          className="textarea w-full h-full p-3 border border-primary/30 rounded bg-base-100 resize-none font-mono"
+          className="textarea absolute inset-0 w-full h-full p-3 border border-primary/30 rounded bg-base-100 resize-none font-mono"
           placeholder={placeholder}
           value={value || ""}
           readOnly
@@ -20,7 +20,7 @@ export default function OutputSection({
 
         <button
           type="button"
-          className="absolute bottom-2 right-2 p-3 bg-transparent hover:bg-neutral/90 hover:text-white rounded-full disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-inherit"
+          className="absolute bottom-2 right-2 p-3 bg-transparent hover:bg-neutral/90 hover:text-white rounded-full disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-inherit z-10"
           onClick={onCopy}
           disabled={!value}
           aria-label="Copy output"

@@ -1,4 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 @plugin "daisyui"{
   themes: light --default, dark --default;
 }
@@ -91,19 +103,95 @@
 
 /* Base glass effect */
 .glass-effect {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 1000;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Light mode */
 html[data-theme="light"] .glass-effect {
-  background-color: rgba(234, 233, 233, 0.7);
+  background-color: rgba(255, 255, 255, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
 }
 
 /* Dark mode */
 html[data-theme="dark"] .glass-effect {
-  background-color: rgba(0, 0, 0, 0.8); /* slate-900-ish */
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(24, 24, 37, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
+
+/* Advanced Interactive Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+    filter: blur(12px);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.04);
+    filter: blur(18px);
+  }
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@keyframes radial-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-dash {
+  stroke-dasharray: 8, 4;
+  animation: dash-flow 2s linear infinite;
+}
+
+.animate-dash-reverse {
+  stroke-dasharray: 8, 4;
+  animation: dash-flow 2s linear infinite reverse;
+}
+
+.animate-radial-spin {
+  animation: radial-spin 25s linear infinite;
+}
+
+.animate-radial-spin-reverse {
+  animation: radial-spin 15s linear infinite reverse;
+}
+
+.glow-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+

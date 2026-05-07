@@ -106,13 +106,13 @@ export default function CategoryEngine() {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full max-w-8xl mx-auto">
-          <div className="grid h-full min-h-0 grid-cols-12 gap-3">
+    <div className="flex flex-col min-h-full">
+      <div className="flex-1">
+        <div className="max-w-8xl mx-auto">
+          <div className="grid h-[calc(100vh-13rem)] grid-cols-12 gap-3">
             <div className="col-span-12 xl:col-span-8 flex min-h-0 flex-col gap-3">
               <div className="grid min-h-0 flex-1 grid-cols-12 gap-3">
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col overflow-hidden">
                   <InputSection
                     title="Onboarding Input"
                     value={inputText}
@@ -122,12 +122,12 @@ export default function CategoryEngine() {
                   />
                 </div>
 
-                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-90 flex-col">
+                <div className="col-span-12 xl:col-span-6 bg-base-200 rounded-lg shadow border-2 border-primary/70 flex min-h-0 flex-col overflow-hidden">
                   <OutputSection value={outputText} onCopy={handleCopy} />
                 </div>
               </div>
 
-              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 min-h-40 flex flex-col">
+              <div className="bg-base-200 rounded-lg shadow border-2 border-primary/70 min-h-40 flex flex-col shrink-0">
                 <ConsoleSection value={consoleText} />
               </div>
             </div>
