@@ -22,6 +22,12 @@ def status():
 
     n_users = profiles_repo.count_users()
     n_versions = profiles_repo.count_versions()
+    profile_versions_by_user = profiles_repo.count_versions_by_user()
+    user_model_versions = {
+        user_id: f"v{count}" for user_id, count in profile_versions_by_user.items()
+    }
+    if not user_model_versions:
+        user_model_versions = models_repo.user_model_versions
 
     category_artifacts = category_engine.artifacts
     category_is_trained = category_artifacts is not None
@@ -43,7 +49,7 @@ def status():
             "global_iforest_version": models_repo.global_iforest_version,
             "category_model_version": models_repo.category_model_version,
             "user_seq_model_version": models_repo.user_seq_model_version,
-            "user_model_versions": models_repo.user_model_versions,
+            "user_model_versions": user_model_versions,
         },
         "health_checks": {
             "category_engine_model": {

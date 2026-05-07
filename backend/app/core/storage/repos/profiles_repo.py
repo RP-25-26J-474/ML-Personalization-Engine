@@ -84,6 +84,15 @@ class ProfilesRepo:
     def count_versions(self) -> int:
         return self._col.count_documents({})
 
+    def count_versions_by_user(self) -> dict[str, int]:
+        rows = self._col.aggregate(
+            [
+                {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+                {"$sort": {"count": -1, "_id": 1}},
+            ]
+        )
+        return {str(row["_id"]): int(row["count"]) for row in rows}
+
     @staticmethod
     def _build_profile_changes(prev_profile: dict | None, new_profile: dict) -> dict:
         if not prev_profile:
