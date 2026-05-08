@@ -37,10 +37,7 @@ export default function ProfileDiffHistory({ items = [], userId = "" }) {
               <div className="text-base-content/60">{formatDate(item.created_at)}</div>
             </div>
             <div className="mt-2 text-xs text-base-content/60">
-              Changes: {item.changed?.length ?? 0} · Confidence:{" "}
-              {typeof item.confidence_overall === "number"
-                ? item.confidence_overall.toFixed(2)
-                : "--"}
+              Changes: {item.changed?.length ?? 0}
             </div>
             <div className="mt-2 grid gap-2 text-xs font-mono">
               {(item.changed || []).map((key) => (
